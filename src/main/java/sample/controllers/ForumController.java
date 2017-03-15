@@ -1,9 +1,11 @@
 package sample.controllers;
 
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import sample.objects.ObjForum;
+import sample.sql.ForumService;
+
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * Created by Denis on 17.02.2017.
@@ -17,8 +19,8 @@ public class ForumController {
 
     //Создание форума
     @RequestMapping(path = "/create", method = RequestMethod.POST)
-    public void createForum() {
-
+    public ResponseEntity<String> createForum(@RequestBody ObjForum body) {
+        return (new ForumService().create(body));
     }
 
     //Создание ветки
