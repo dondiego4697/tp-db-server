@@ -1,6 +1,7 @@
 package sample.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import sample.objects.ObjUser;
@@ -22,19 +23,20 @@ public class UserController {
 
     //Создание нового пользователя
     @RequestMapping(path = "/{nickname}/create", method = RequestMethod.POST)
-    public void createUser(@RequestBody ObjUser body, @PathVariable(name = "nickname") String nickname) {
-        userService.create(body, nickname);
+    public ResponseEntity<String> createUser(@RequestBody ObjUser body, @PathVariable(name = "nickname") String nickname) {
+        return (userService.create(body, nickname));
     }
 
     //Получение информации о пользователе
     @RequestMapping(path = "/{nickname}/profile", method = RequestMethod.GET)
-    public void getUser(@PathVariable(name = "nickname") String nickname) {
-
+    public ResponseEntity<String> getUser(@PathVariable(name = "nickname") String nickname) {
+        return (userService.get(nickname));
     }
 
     //Изменение данных о пользователе
     @RequestMapping(path = "/{nickname}/profile", method = RequestMethod.POST)
-    public void updateUser(@PathVariable(name = "nickname") String nickname) {
-
+    public ResponseEntity<String> updateUser(@RequestBody ObjUser body,
+                                             @PathVariable(name = "nickname") String nickname) {
+        return (userService.update(body, nickname));
     }
 }
