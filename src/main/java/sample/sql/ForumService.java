@@ -52,7 +52,8 @@ public class ForumService {
         }
         jdbcTemplate.update(
                 "INSERT INTO forum (title,\"user\",slug,posts,threads) VALUES(?,?,?,?,?)",
-                objForum.getTitle(), objForum.getUser(), objForum.getSlug(), objForum.getPosts(), objForum.getThreads());
+                objForum.getTitle(), objForum.getUser(), objForum.getSlug(), objForum.getPosts(),
+                objForum.getThreads());
         return new ResponseEntity<>(objForum.getJson().toString(), HttpStatus.CREATED);
     }
 
@@ -71,10 +72,15 @@ public class ForumService {
     public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
         try {
             final ObjThread thread = jdbcTemplate.queryForObject(
-                    "SELECT * FROM thread WHERE LOWER(title)= ?",
-                    new Object[]{objThread.getTitle().toLowerCase()}, new ThreadMapper());
+                    "SELECT * FROM thread WHERE LOWER(title)= ? OR LOWER(slug)=?",
+                    new Object[]{objThread.getTitle().toLowerCase(), objThread.getSlug().toLowerCase()}, new ThreadMapper());
+                    final StringBuilder time = new StringBuilder(thread.getCreated());
+                    time.replace(10, 11, "T");
+                    time.append(":00");
+                    thread.setCreated(time.toString());
             return new ResponseEntity<>(thread.getJson().toString(), HttpStatus.CONFLICT);
         } catch (Exception e) {
+
         }
 
         ObjForum objForum;
@@ -85,11 +91,10 @@ public class ForumService {
             objForum = jdbcTemplate.queryForObject(
                     "SELECT * FROM forum WHERE LOWER(slug)=?",
                     new Object[]{objThread.getForum().toLowerCase()}, new ForumMapper());
+                    objThread.setForum(objForum.getSlug());
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
-
-        System.out.println("SLUG = " + objForum.getSlug());
 
         final KeyHolder holder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -98,8 +103,7 @@ public class ForumService {
                             "votes,created) VALUES (?,?,?,?,?,?,?::timestamptz)", new String[]{"id"});
             ps.setString(1, objThread.getTitle());
             ps.setString(2, objThread.getAuthor());
-//            ps.setString(3, objThread.getForum());
-            ps.setString(3, objForum.getSlug());
+            ps.setString(3, objThread.getForum());
             ps.setString(4, objThread.getMessage());
             ps.setString(5, objThread.getSlug());
             ps.setInt(6, objThread.getVotes());
@@ -121,16 +125,19 @@ public class ForumService {
             final StringBuilder time = new StringBuilder(since);
             time.replace(10, 11, " ");
             since = time.toString();
-            SQLThreads.append(" AND created >=?::timestamptz ");
+
+            if (desc != null && desc) SQLThreads.append(" AND created <=?::timestamptz ");
+            else SQLThreads.append(" AND created >=?::timestamptz ");
         }
         SQLThreads.append(" ORDER BY created ");
 
-        if (desc) SQLThreads.append(" DESC ");
+        if (desc != null && desc) SQLThreads.append(" DESC ");
 
         List<ObjThread> threads;
         if (limit != null) {
             SQLThreads.append(" LIMIT ?");
             if (since != null) {
+
                 threads = jdbcTemplate.query(SQLThreads.toString(),
                         new Object[]{slug, since, limit}, new ThreadMapper());
             } else {
@@ -141,8 +148,10 @@ public class ForumService {
             if (since != null) {
                 threads = jdbcTemplate.query(SQLThreads.toString(),
                         new Object[]{slug, since}, new ThreadMapper());
-            } else threads = jdbcTemplate.query(SQLThreads.toString(),
-                    new Object[]{slug}, new ThreadMapper());
+            } else {
+                threads = jdbcTemplate.query(SQLThreads.toString(),
+                        new Object[]{slug}, new ThreadMapper());
+            }
         }
 
         final JSONArray result = new JSONArray();
