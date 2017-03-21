@@ -11,7 +11,7 @@ public class ObjPost {
     @SuppressWarnings("MultipleVariablesInDeclaration")
     private int id, parent, thread;
     @SuppressWarnings("MultipleVariablesInDeclaration")
-    private String author, message, forum, created;
+    private String author, message, forum, created, path;
     private boolean isEdited;
 
     public ObjPost(){
@@ -27,6 +27,7 @@ public class ObjPost {
             @JsonProperty("thread") int thread,
             @JsonProperty("isEdited") boolean isEdited,
             @JsonProperty("forum") String forum,
+            @JsonProperty("path") String path,
             @JsonProperty("created") String created) {
         this.id = id;
         this.parent=parent;
@@ -34,12 +35,22 @@ public class ObjPost {
         this.message = message;
         this.thread = thread;
         this.isEdited= isEdited;
+        this.path= path;
         this.forum=forum;
         this.created=created;
     }
 
     public String getMessage() {
         return message;
+    }
+
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
     }
 
     public String getForum() {

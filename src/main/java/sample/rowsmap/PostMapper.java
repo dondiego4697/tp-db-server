@@ -21,6 +21,7 @@ public class PostMapper implements RowMapper<ObjPost> {
         objPost.setMessage(resultSet.getString("message"));
         objPost.setParent(resultSet.getInt("parent"));
         objPost.setThread(resultSet.getInt("thread"));
+        objPost.setPath(resultSet.getString("path"));
         return objPost;
     }
 }

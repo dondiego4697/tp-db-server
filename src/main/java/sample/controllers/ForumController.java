@@ -53,7 +53,10 @@ public class ForumController {
 
     //Пользователи данного форума
     @RequestMapping(path = "/{slug}/users", method = RequestMethod.GET)
-    public void getForumUsers(@PathVariable(name = "slug") String slug) {
-
+    public ResponseEntity<String> getForumUsers(@PathVariable(name = "slug") String slug,
+                                                @RequestParam(value = "limit", required = false) Integer limit,
+                                                @RequestParam(value = "since", required = false) String since,
+                                                @RequestParam(value = "desc", required = false) Boolean desc){
+            return (forumService.getForumUsers(slug, limit, since, desc));
     }
 }

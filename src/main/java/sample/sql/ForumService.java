@@ -15,6 +15,7 @@ import sample.objects.ObjUser;
 import sample.rowsmap.ForumMapper;
 import sample.rowsmap.ThreadMapper;
 import sample.rowsmap.UserMapper;
+import sample.support.TransformDate;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -61,8 +62,10 @@ public class ForumService {
     public ResponseEntity<String> details(String slug) {
         try {
             final ObjForum forum = jdbcTemplate.queryForObject(
-                    "SELECT * FROM forum WHERE LOWER(slug) = ?",
-                    new Object[]{slug.toLowerCase()}, new ForumMapper());
+                    "SELECT * FROM forum WHERE LOWER(slug) = LOWER(?)",
+                    new Object[]{slug}, new ForumMapper());
+            System.out.println(forum.getJson());
+            System.out.println(slug);
             return new ResponseEntity<>(forum.getJson().toString(), HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -72,12 +75,9 @@ public class ForumService {
     public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
         try {
             final ObjThread thread = jdbcTemplate.queryForObject(
-                    "SELECT * FROM thread WHERE LOWER(title)= ? OR LOWER(slug)=?",
-                    new Object[]{objThread.getTitle().toLowerCase(), objThread.getSlug().toLowerCase()}, new ThreadMapper());
-                    final StringBuilder time = new StringBuilder(thread.getCreated());
-                    time.replace(10, 11, "T");
-                    time.append(":00");
-                    thread.setCreated(time.toString());
+                    "SELECT * FROM thread WHERE LOWER(title)= LOWER(?) OR LOWER(slug)=LOWER(?)",
+                    new Object[]{objThread.getTitle(), objThread.getSlug()}, new ThreadMapper());
+            thread.setCreated(TransformDate.transformWithAppend00(thread.getCreated()));
             return new ResponseEntity<>(thread.getJson().toString(), HttpStatus.CONFLICT);
         } catch (Exception e) {
 
@@ -86,12 +86,12 @@ public class ForumService {
         ObjForum objForum;
         try {
             jdbcTemplate.queryForObject(
-                    "SELECT * FROM users WHERE LOWER(nickname)=?",
-                    new Object[]{objThread.getAuthor().toLowerCase()}, new UserMapper());
+                    "SELECT * FROM users WHERE LOWER(nickname)=LOWER(?)",
+                    new Object[]{objThread.getAuthor()}, new UserMapper());
             objForum = jdbcTemplate.queryForObject(
-                    "SELECT * FROM forum WHERE LOWER(slug)=?",
-                    new Object[]{objThread.getForum().toLowerCase()}, new ForumMapper());
-                    objThread.setForum(objForum.getSlug());
+                    "SELECT * FROM forum WHERE LOWER(slug)=LOWER(?)",
+                    new Object[]{slug}, new ForumMapper());
+            objThread.setForum(objForum.getSlug());
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
@@ -111,6 +111,12 @@ public class ForumService {
             return ps;
         }, holder);
         objThread.setId((int) holder.getKey());
+
+        jdbcTemplate.update(
+                "UPDATE forum SET threads=threads+1 WHERE LOWER(slug)=LOWER(?)",
+                slug);
+
+
         return new ResponseEntity<>(objThread.getJson().toString(), HttpStatus.CREATED);
     }
 
@@ -156,12 +162,41 @@ public class ForumService {
 
         final JSONArray result = new JSONArray();
         for (ObjThread objThread : threads) {
-            final StringBuilder time = new StringBuilder(objThread.getCreated());
-            time.replace(10, 11, "T");
-            time.append(":00");
-            objThread.setCreated(time.toString());
+            objThread.setCreated(TransformDate.transformWithAppend00(objThread.getCreated()));
             result.put(objThread.getJson());
         }
         return new ResponseEntity<>(result.toString(), HttpStatus.OK);
     }
+
+    public ResponseEntity<String> getForumUsers(String slug, Integer limit, String since, Boolean desc) {
+        final ResponseEntity<String> forum = details(slug);
+        if (forum.getStatusCode() == HttpStatus.NOT_FOUND) return forum;
+
+        final StringBuilder query = new StringBuilder(
+                "SELECT DISTINCT * FROM users as u FULL OUTER JOIN post as p ")
+        .append("ON LOWER(u.nickname)=LOWER(p.author) FULL OUTER JOIN thread as t ")
+        .append("ON LOWER(u.nickname)=LOWER(t.author) WHERE LOWER(p.forum)=LOWER(?) ")
+        .append("OR LOWER(t.forum)=LOWER(?) ORDER BY LOWER(nickname)");
+
+
+        if(desc != null && desc) query.append(" DESC");
+
+        if(limit != null){
+            query.append(" LIMIT ").append(limit);
+        }
+        System.out.println(slug);
+        System.out.println(query.toString());
+        final List<ObjUser> arrObjUser = jdbcTemplate.query(
+                query.toString(),
+                new Object[]{slug, slug}, new UserMapper());
+
+
+        final JSONArray result = new JSONArray();
+        for (ObjUser objUser : arrObjUser) {
+            result.put(objUser.getJson());
+        }
+
+        return new ResponseEntity<>(result.toString(), HttpStatus.OK);
+    }
+
 }

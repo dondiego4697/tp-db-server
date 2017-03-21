@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import sample.objects.ObjPost;
+import sample.objects.ObjThread;
 import sample.objects.ObjVote;
 import sample.sql.ThreadService;
 
@@ -38,9 +39,9 @@ public class ThreadController {
 
     //Обновление ветки
     @RequestMapping(path = "/{slug_or_id}/details", method = RequestMethod.POST)
-    public void updateThread(@PathVariable(name = "slug_or_id") String slug,
-                             @PathVariable(name = "slug_or_id") Integer id) {
-
+    public ResponseEntity<String> updateThread(@PathVariable(name = "slug_or_id") String slug_or_id,
+                             @RequestBody ObjThread body) {
+        return (threadService.updateThread(body, slug_or_id));
     }
 
     //Сообщения данной ветви обсуждения
