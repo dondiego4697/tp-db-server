@@ -28,7 +28,7 @@ public class ThreadController {
     @RequestMapping(path = "/{slug_or_id}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createPost(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ArrayList<ObjPost> body) {
-        return (threadService.createPost(body, slug_or_id));
+        return (threadService.createPosts(body, slug_or_id));
     }
 
     //Получение информации о ветке обсуждения
