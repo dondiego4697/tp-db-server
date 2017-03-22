@@ -1,5 +1,10 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
+CREATE SEQUENCE forum_id_seq;
+CREATE SEQUENCE post_id_seq;
+CREATE SEQUENCE thread_id_seq;
+CREATE SEQUENCE users_id_seq;
+
 CREATE TABLE users (
   id INTEGER PRIMARY KEY DEFAULT NEXTVAL('users_id_seq'),
   nickname CITEXT NOT NULL UNIQUE,
