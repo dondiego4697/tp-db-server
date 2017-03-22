@@ -34,24 +34,17 @@ public class ForumService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public ResponseEntity<String> create(ObjForum objForum) {
+    public ResponseEntity<String> createForum(ObjForum objForum) {
         try {
-            final ObjUser user = jdbcTemplate.queryForObject(
-                    "SELECT * FROM users WHERE LOWER(nickname) = LOWER(?)",
-                    new Object[]{objForum.getUser()}, new UserMapper());
-            objForum.setUser(user.getNickname());
+            final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objForum.getUser());
+            objForum.setUser(objUser.getNickname());
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 
-        final List<ObjForum> forum = jdbcTemplate.query(
-                /*"SELECT * FROM forum WHERE title = ? OR slug= ? OR \"user\" =? "*/
-                "SELECT * FROM forum WHERE LOWER(slug)=LOWER(?)",
-                new Object[]{objForum.getSlug()/*objForum.getTitle(), objForum.getSlug(), objForum.getUser()*/},
-                new ForumMapper());
-
-        if (!forum.isEmpty()) {
-            return new ResponseEntity<>(forum.get(0).getJson().toString(), HttpStatus.CONFLICT);
+        final ObjForum objForum1 = new ForumService(jdbcTemplate).getObjForum(objForum.getSlug());
+        if (objForum1 != null) {
+            return new ResponseEntity<>(objForum1.getJson().toString(), HttpStatus.CONFLICT);
         }
         jdbcTemplate.update(
                 "INSERT INTO forum (title,\"user\",slug,posts,threads) VALUES(?,?,?,?,?)",
@@ -60,7 +53,7 @@ public class ForumService {
         return new ResponseEntity<>(objForum.getJson().toString(), HttpStatus.CREATED);
     }
 
-    public ObjForum getObjForum(String slug){
+    public ObjForum getObjForum(String slug) {
         try {
             final ObjForum forum = jdbcTemplate.queryForObject(
                     "SELECT * FROM forum WHERE LOWER(slug) = LOWER(?)",
@@ -71,7 +64,7 @@ public class ForumService {
         }
     }
 
-    public ResponseEntity<String> details(String slug) {
+    public ResponseEntity<String> getForumDetails(String slug) {
         try {
             final ObjForum forum = jdbcTemplate.queryForObject(
                     "SELECT * FROM forum WHERE LOWER(slug) = LOWER(?)",
@@ -84,23 +77,21 @@ public class ForumService {
 
     public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
         try {
-            final ObjThread thread = jdbcTemplate.queryForObject(
-                    "SELECT * FROM thread WHERE /*LOWER(title)= LOWER(?) OR*/ LOWER(slug)=LOWER(?)",
-                    new Object[]{/*objThread.getTitle(),*/ objThread.getSlug()}, new ThreadMapper());
-            thread.setCreated(TransformDate.transformWithAppend00(thread.getCreated()));
-            return new ResponseEntity<>(thread.getJson().toString(), HttpStatus.CONFLICT);
+            final ObjThread objThread1 = new ThreadService(jdbcTemplate).getObjThreadBySlug(objThread.getSlug());
+            if (objThread1 != null) {
+                objThread1.setCreated(TransformDate.transformWithAppend00(objThread1.getCreated()));
+                return new ResponseEntity<>(objThread1.getJson().toString(), HttpStatus.CONFLICT);
+            }
         } catch (Exception e) {
-
         }
 
-        ObjForum objForum;
+        final ObjForum objForum;
         try {
-            jdbcTemplate.queryForObject(
-                    "SELECT * FROM users WHERE LOWER(nickname)=LOWER(?)",
-                    new Object[]{objThread.getAuthor()}, new UserMapper());
-            objForum = jdbcTemplate.queryForObject(
-                    "SELECT * FROM forum WHERE LOWER(slug)=LOWER(?)",
-                    new Object[]{slug}, new ForumMapper());
+            final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objThread.getAuthor());
+            objForum = this.getObjForum(slug);
+            if(objUser == null || objForum == null){
+                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+            }
             objThread.setForum(objForum.getSlug());
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -126,21 +117,18 @@ public class ForumService {
                 "UPDATE forum SET threads=threads+1 WHERE LOWER(slug)=LOWER(?)",
                 slug);
 
-
         return new ResponseEntity<>(objThread.getJson().toString(), HttpStatus.CREATED);
     }
 
 
     public ResponseEntity<String> getThreads(String slug, Integer limit, String since, Boolean desc) {
-        final ResponseEntity<String> forum = details(slug);
+        final ResponseEntity<String> forum = getForumDetails(slug);
         if (forum.getStatusCode() == HttpStatus.NOT_FOUND) return forum;
 
         final StringBuilder SQLThreads = new StringBuilder(
                 "SELECT * FROM thread WHERE forum=?");
         if (since != null) {
-            final StringBuilder time = new StringBuilder(since);
-            time.replace(10, 11, " ");
-            since = time.toString();
+            since = TransformDate.replaceOnSpace(since);
 
             if (desc != null && desc) SQLThreads.append(" AND created <=?::timestamptz ");
             else SQLThreads.append(" AND created >=?::timestamptz ");
@@ -149,11 +137,11 @@ public class ForumService {
 
         if (desc != null && desc) SQLThreads.append(" DESC ");
 
-        List<ObjThread> threads;
+        final List<ObjThread> threads;
+
         if (limit != null) {
             SQLThreads.append(" LIMIT ?");
             if (since != null) {
-
                 threads = jdbcTemplate.query(SQLThreads.toString(),
                         new Object[]{slug, since, limit}, new ThreadMapper());
             } else {
@@ -179,18 +167,18 @@ public class ForumService {
     }
 
     public ResponseEntity<String> getForumUsers(String slug, Integer limit, String since, Boolean desc) {
-        final ResponseEntity<String> forum = details(slug);
+        final ResponseEntity<String> forum = getForumDetails(slug);
         if (forum.getStatusCode() == HttpStatus.NOT_FOUND) return forum;
 
         final StringBuilder query = new StringBuilder(
                 "SELECT *, OCTET_LENGTH(LOWER(nickname)) FROM users WHERE nickname IN")
-        .append("(SELECT u.nickname FROM users as u FULL OUTER JOIN post as p ")
-        .append("ON LOWER(u.nickname)=LOWER(p.author) FULL OUTER JOIN thread as t ")
-        .append("ON LOWER(u.nickname)=LOWER(t.author) WHERE LOWER(p.forum)=LOWER(?) ")
-        .append("OR LOWER(t.forum)=LOWER(?) GROUP BY u.nickname)");
+                .append("(SELECT u.nickname FROM users as u FULL OUTER JOIN post as p ")
+                .append("ON LOWER(u.nickname)=LOWER(p.author) FULL OUTER JOIN thread as t ")
+                .append("ON LOWER(u.nickname)=LOWER(t.author) WHERE LOWER(p.forum)=LOWER(?) ")
+                .append("OR LOWER(t.forum)=LOWER(?) GROUP BY u.nickname)");
 
-        if(since!=null){
-            if(desc != null && desc) {
+        if (since != null) {
+            if (desc != null && desc) {
                 query.append(" AND nickname<'").append(since).append("'");
             } else {
                 query.append(" AND nickname>'").append(since).append("'");
@@ -198,13 +186,11 @@ public class ForumService {
         }
         query.append("  ORDER BY nickname");
 
-        if(desc != null && desc) query.append(" DESC");
+        if (desc != null && desc) query.append(" DESC");
 
-        if(limit != null){
+        if (limit != null) {
             query.append(" LIMIT ").append(limit);
         }
-        System.out.println(slug);
-        System.out.println(query.toString());
         final List<ObjUser> arrObjUser = jdbcTemplate.query(
                 query.toString(),
                 new Object[]{slug, slug}, new UserMapper());

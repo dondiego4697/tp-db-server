@@ -6,9 +6,6 @@ import org.springframework.web.bind.annotation.*;
 import sample.objects.ObjForum;
 import sample.objects.ObjThread;
 import sample.sql.ForumService;
-import sample.sql.UserService;
-
-import javax.servlet.http.HttpServletResponse;
 
 /**
  * Created by Denis on 17.02.2017.
@@ -25,8 +22,8 @@ public class ForumController {
 
     //Создание форума
     @RequestMapping(path = "/create", method = RequestMethod.POST)
-    public ResponseEntity<String> create(@RequestBody ObjForum body) {
-        return (forumService.create(body));
+    public ResponseEntity<String> createForum(@RequestBody ObjForum body) {
+        return (forumService.createForum(body));
     }
 
     //Создание ветки
@@ -39,7 +36,7 @@ public class ForumController {
     //Получение информации о форуме
     @RequestMapping(path = "/{slug}/details", method = RequestMethod.GET)
     public ResponseEntity<String> getForumDetails(@PathVariable(name = "slug") String slug) {
-        return (forumService.details(slug));
+        return (forumService.getForumDetails(slug));
     }
 
     //Список ветвей обсуждения форума

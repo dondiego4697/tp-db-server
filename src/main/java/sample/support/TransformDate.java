@@ -19,4 +19,10 @@ public class TransformDate {
         time.append("+03:00");
         return time.toString();
     }
+
+    public static String replaceOnSpace(String date){
+        final StringBuilder time = new StringBuilder(date);
+        time.replace(10, 11, " ");
+        return time.toString();
+    }
 }

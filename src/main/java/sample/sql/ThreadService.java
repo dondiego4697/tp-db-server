@@ -39,17 +39,19 @@ public class ThreadService {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         if (!objSlugOrId.getFlag()) {
             try {
-                objThread = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE id=?",
-                        new Object[]{objSlugOrId.getId()}, new ThreadMapper());
+                objThread = this.getObjThreadById(objSlugOrId.getId());
+                if (objThread == null) {
+                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                }
             } catch (Exception e) {
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
         } else {
             try {
-                objThread = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE LOWER(slug) = LOWER(?)",
-                        new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
+                objThread = this.getObjThreadBySlug(objSlugOrId.getSlug());
+                if (objThread == null) {
+                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                }
             } catch (Exception e) {
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
@@ -65,7 +67,6 @@ public class ThreadService {
                     final List<ObjPost> posts = jdbcTemplate.query(
                             "SELECT * FROM post WHERE id=? AND thread=?",
                             new Object[]{objPost.getParent(), objThread.getId()}, new PostMapper());
-                    System.out.println("adasad=" + posts.size());
                     if (posts.isEmpty()) {
                         return new ResponseEntity<>("", HttpStatus.CONFLICT);
                     }
@@ -153,25 +154,25 @@ public class ThreadService {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         final ObjThread result;
 
-        if (new UserService(jdbcTemplate).get(objVote.getNickname()).getStatusCode().equals(HttpStatus.NOT_FOUND)) {
+        if(new UserService(jdbcTemplate).getObjUser(objVote.getNickname()) == null){
+            return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+        }
+
+        if(this.getObjThread(slug_or_id) == null){
+            return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+        }
+
+        /*if (new UserService(jdbcTemplate).get(objVote.getNickname()).getStatusCode().equals(HttpStatus.NOT_FOUND)) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 
         if (new ThreadService(jdbcTemplate).getThreadDetails(slug_or_id).getStatusCode().equals(HttpStatus.NOT_FOUND)) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-        }
+        }*/
 
 
         if (!objSlugOrId.getFlag()) {
             objVote.setThreadId(objSlugOrId.getId());
-
-            /*final List<ObjThread> objThreadList = jdbcTemplate.query(
-                    "SELECT * FROM thread WHERE id=?",
-                    new Object[]{objSlugOrId.getId()}, new ThreadMapper());*/
-
-            /*final List<ObjUser> objUserList = jdbcTemplate.query(
-                    "SELECT * FROM users WHERE LOWER(nickname)=LOWER(?)",
-                    new Object[]{objVote.getNickname()}, new UserMapper());*/
 
             final List<ObjVote> objVoteList = jdbcTemplate.query(
                     "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
@@ -217,14 +218,6 @@ public class ThreadService {
             return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
         } else {
             objVote.setSlug(objSlugOrId.getSlug());
-
-          /*  final List<ObjThread> objThreadList = jdbcTemplate.query(
-                    "SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
-                    new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
-
-            final List<ObjUser> objUserList = jdbcTemplate.query(
-                    "SELECT * FROM users WHERE LOWER(nickname)=LOWER(?)",
-                    new Object[]{objVote.getNickname()}, new UserMapper());*/
 
             final List<ObjVote> objVoteList = jdbcTemplate.query(
                     "SELECT * FROM vote WHERE (LOWER(slug),LOWER(nickname))=(LOWER(?),LOWER(?))",
@@ -277,15 +270,11 @@ public class ThreadService {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         try {
             if (objSlugOrId.getFlag()) {
-                final ObjThread result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
-                        new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
+                final ObjThread result = this.getObjThreadBySlug(objSlugOrId.getSlug());
                 result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
                 return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
             }
-            final ObjThread result = jdbcTemplate.queryForObject(
-                    "SELECT * FROM thread WHERE id=?",
-                    new Object[]{objSlugOrId.getId()}, new ThreadMapper());
+            final ObjThread result = this.getObjThreadById(objSlugOrId.getId());
             result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
             return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
         } catch (Exception e) {
@@ -296,21 +285,19 @@ public class ThreadService {
     public ResponseEntity<String> getThreadPosts(String slug_or_id, Integer limit,
                                                  String sort, Boolean desc, Integer marker) {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
-        final List<ObjThread> threadList;
+        final ObjThread objThread;
 
         final StringBuilder postQuery = new StringBuilder(
                 "SELECT * FROM post WHERE thread=");
         if (objSlugOrId.getFlag()) {
-            threadList = jdbcTemplate.query("SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
-                    new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
+            objThread = this.getObjThreadBySlug(objSlugOrId.getSlug());
 
         } else {
-            threadList = jdbcTemplate.query("SELECT * FROM thread WHERE id=?",
-                    new Object[]{objSlugOrId.getId()}, new ThreadMapper());
+            objThread = this.getObjThreadById(objSlugOrId.getId());
 
         }
-        if (!threadList.isEmpty()) {
-            final ObjThread thread = threadList.get(0);
+        if (objThread != null) {
+            final ObjThread thread = objThread;
             postQuery.append(thread.getId());
 
             List<ObjPost> posts = null;
@@ -340,10 +327,8 @@ public class ThreadService {
                 case "parent_tree": {
                     if (limit != null) {
                         if (desc != null && !desc) {
-                            final Integer maxIds = jdbcTemplate.queryForObject(
-                                    "SELECT COUNT(*) FROM post WHERE parent=0 AND thread=?",
-                                    new Object[]{thread.getId()}, Integer.class
-                            );
+                            final Integer maxIds = new PostService(jdbcTemplate).
+                                    getCountOfMainPosts(thread.getId());
 
                             if ((maxIds - limit - marker) < 0) {
                                 postQuery.append(" AND path >= '").append(ValueConverter.toHex(marker))
@@ -356,10 +341,8 @@ public class ThreadService {
                             }
 
                         } else {
-                            final Integer maxIds = jdbcTemplate.queryForObject(
-                                    "SELECT COUNT(*) FROM post WHERE parent=0 AND thread=?",
-                                    new Object[]{thread.getId()}, Integer.class
-                            );
+                            final Integer maxIds = new PostService(jdbcTemplate).
+                                    getCountOfMainPosts(thread.getId());
 
                             if ((maxIds - limit - marker) < 0) {
                                 final int top = maxIds - marker;
@@ -387,11 +370,10 @@ public class ThreadService {
                     break;
                 }
             }
-            System.out.println(postQuery.toString());
             try {
                 posts = jdbcTemplate.query(postQuery.toString(), new PostMapper());
             } catch (Exception e) {
-                System.out.println(e.toString());
+
             }
 
 
@@ -417,6 +399,26 @@ public class ThreadService {
         }
     }
 
+    public ObjThread getObjThreadBySlug(String slug) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
+                    new Object[]{slug}, new ThreadMapper());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public ObjThread getObjThreadById(Integer id) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT * FROM thread WHERE id=?",
+                    new Object[]{id}, new ThreadMapper());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public ObjThread getObjThread(String slug_or_id) {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         final ObjThread objThread;
@@ -428,7 +430,7 @@ public class ThreadService {
                 objThread = jdbcTemplate.queryForObject("SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
                         new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
         return objThread;
@@ -436,9 +438,8 @@ public class ThreadService {
 
     public ResponseEntity<String> updateThread(ObjThread newData, String slug_or_id) {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
-
         if (this.getThreadDetails(slug_or_id).getStatusCode() == HttpStatus.OK) {
-            if(newData.getMessage()!=null && newData.getTitle()!=null){
+            if (newData.getMessage() != null && newData.getTitle() != null) {
                 try {
                     if (!objSlugOrId.getFlag()) {
                         jdbcTemplate.update("UPDATE thread SET message=?, title=? WHERE id=?",
@@ -450,7 +451,7 @@ public class ThreadService {
                 } catch (Exception e) {
                     return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
                 }
-            } else if(newData.getMessage()!=null && newData.getTitle()==null){
+            } else if (newData.getMessage() != null && newData.getTitle() == null) {
                 try {
                     if (!objSlugOrId.getFlag()) {
                         jdbcTemplate.update("UPDATE thread SET message=? WHERE id=?",
@@ -462,7 +463,7 @@ public class ThreadService {
                 } catch (Exception e) {
                     return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
                 }
-            } else if(newData.getMessage()==null && newData.getTitle()!=null){
+            } else if (newData.getMessage() == null && newData.getTitle() != null) {
                 try {
                     if (!objSlugOrId.getFlag()) {
                         jdbcTemplate.update("UPDATE thread SET  title=? WHERE id=?",
@@ -486,6 +487,5 @@ public class ThreadService {
         } else {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
-
     }
 }
