@@ -1,29 +1,35 @@
 package sample.controllers;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+import sample.sql.DBService;
 
 /**
  * Created by Denis on 17.02.2017.
  */
 
 @RestController
-@RequestMapping("/service/")
-public class ServiceController {
-    public ServiceController(){
+@RequestMapping("api/service/")
+public class DBController {
 
+    private final DBService dbService;
+
+    public DBController(JdbcTemplate jdbcTemplate) {
+        this.dbService = new DBService(jdbcTemplate);
     }
 
     //Очистка всех данных в базе
     @RequestMapping(path = "/clear", method = RequestMethod.POST)
-    public void clear(){
-
+    public ResponseEntity<String> clear() {
+        return (dbService.clear());
     }
 
     //Получение информации о базе данных
     @RequestMapping(path = "/status", method = RequestMethod.GET)
-    public void getStatus(){
-
+    public ResponseEntity<String> getStatus() {
+        return (dbService.getInfo());
     }
 }

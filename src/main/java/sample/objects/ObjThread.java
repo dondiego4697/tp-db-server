@@ -10,9 +10,9 @@ import org.json.JSONObject;
 public class ObjThread {
 
     @SuppressWarnings("MultipleVariablesInDeclaration")
-    private int id, votes=0;
+    private int id, votes = 0;
     @SuppressWarnings("MultipleVariablesInDeclaration")
-    private String title="", author, forum="", message="", slug, created="";
+    private String title = "", author, forum = "", message = "", slug, created = "";
 
     public ObjThread() {
 
@@ -36,6 +36,15 @@ public class ObjThread {
         this.slug = slug;
         this.votes = votes;
         this.created = created;
+    }
+
+    public boolean isEmpty() {
+        if (this.author == null || this.created == null ||
+                this.forum == null || this.message == null || this.title == null) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public void setTitle(String title) {
