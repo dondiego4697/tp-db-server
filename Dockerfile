@@ -74,13 +74,13 @@ USER postgres
 #USER root
 
 CMD service postgresql start && \
-#    psql --command "UPDATE pg_database SET datistemplate = FALSE WHERE datname = 'template1';" && \
-#    psql --command "DROP DATABASE template1;" && \
-#    psql --command "CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING = 'UNICODE';" && \
-#    psql --command "UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template1';" && \
-#    psql --command "\c template1" && \
-#    psql --command "VACUUM FREEZE;" && \
-#    \
+    psql --command "UPDATE pg_database SET datistemplate = FALSE WHERE datname = 'template1';" && \
+    psql --command "DROP DATABASE template1;" && \
+    psql --command "CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING = 'UNICODE';" && \
+    psql --command "UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template1';" && \
+    psql --command "\c template1" && \
+    psql --command "VACUUM FREEZE;" && \
+    \
     psql --command "CREATE DATABASE forum WITH ENCODING 'UTF8';" && \
     psql -f $WORK/java-spring/sql_scripts/docker_initdb.sql forum postgres && \
     java -jar $WORK/java-spring/target/serverfordb-1.0-SNAPSHOT.jar
