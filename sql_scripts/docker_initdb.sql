@@ -44,3 +44,10 @@ CREATE TABLE thread (
   created TIMESTAMP WITH TIME ZONE,
   author TEXT
 );
+
+CREATE TABLE vote (
+  id INTEGER,
+  slug VARCHAR(255),
+  nickname VARCHAR(255),
+  voice INTEGER
+);
