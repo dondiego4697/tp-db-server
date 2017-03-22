@@ -1,6 +1,5 @@
 package sample.sql;
 
-import com.sun.istack.internal.NotNull;
 import org.json.JSONArray;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -30,7 +29,7 @@ public class ForumService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public ForumService(@NotNull JdbcTemplate jdbcTemplate) {
+    public ForumService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

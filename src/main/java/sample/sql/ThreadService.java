@@ -1,6 +1,5 @@
 package sample.sql;
 
-import com.sun.istack.internal.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +29,7 @@ public class ThreadService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public ThreadService(@NotNull JdbcTemplate jdbcTemplate) {
+    public ThreadService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

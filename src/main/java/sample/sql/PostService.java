@@ -1,6 +1,5 @@
 package sample.sql;
 
-import com.sun.istack.internal.NotNull;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,7 +20,7 @@ public class PostService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public PostService(@NotNull JdbcTemplate jdbcTemplate) {
+    public PostService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

@@ -1,6 +1,5 @@
 package sample.sql;
 
-import com.sun.istack.internal.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +14,7 @@ public class DBService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public DBService(@NotNull JdbcTemplate jdbcTemplate) {
+    public DBService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

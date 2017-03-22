@@ -1,6 +1,5 @@
 package sample.sql;
 
-import com.sun.istack.internal.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +20,7 @@ public class UserService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public UserService(@NotNull JdbcTemplate jdbcTemplate) {
+    public UserService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
