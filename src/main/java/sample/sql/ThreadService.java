@@ -12,7 +12,6 @@ import org.springframework.jdbc.support.KeyHolder;
 import sample.objects.*;
 import sample.rowsmap.PostMapper;
 import sample.rowsmap.ThreadMapper;
-import sample.rowsmap.UserMapper;
 import sample.rowsmap.VoteMapper;
 import sample.support.ObjSlugOrId;
 import sample.support.ValueConverter;
@@ -153,121 +152,124 @@ public class ThreadService {
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         final ObjThread result;
+
+        if (new UserService(jdbcTemplate).get(objVote.getNickname()).getStatusCode().equals(HttpStatus.NOT_FOUND)) {
+            return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+        }
+
+        if (new ThreadService(jdbcTemplate).getThreadDetails(slug_or_id).getStatusCode().equals(HttpStatus.NOT_FOUND)) {
+            return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+        }
+
+
         if (!objSlugOrId.getFlag()) {
             objVote.setThreadId(objSlugOrId.getId());
 
-            final List<ObjThread> objThreadList = jdbcTemplate.query(
+            /*final List<ObjThread> objThreadList = jdbcTemplate.query(
                     "SELECT * FROM thread WHERE id=?",
-                    new Object[]{objSlugOrId.getId()}, new ThreadMapper());
+                    new Object[]{objSlugOrId.getId()}, new ThreadMapper());*/
 
-            final List<ObjUser> objUserList = jdbcTemplate.query(
+            /*final List<ObjUser> objUserList = jdbcTemplate.query(
                     "SELECT * FROM users WHERE LOWER(nickname)=LOWER(?)",
-                    new Object[]{objVote.getNickname()}, new UserMapper());
+                    new Object[]{objVote.getNickname()}, new UserMapper());*/
 
-            if (!objThreadList.isEmpty() && !objUserList.isEmpty()) {
-                final List<ObjVote> objVoteList = jdbcTemplate.query(
-                        "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
-                        new Object[]{objVote.getThreadId(), objVote.getNickname()}, new VoteMapper());
-                if (objVoteList.isEmpty()) {
-                    if (objVote.getVoice() == 1)
-                        jdbcTemplate.update(
-                                "UPDATE thread SET votes=votes+1 WHERE id=?",
-                                new Object[]{objVote.getThreadId()});
-                    else {
-                        jdbcTemplate.update(
-                                "UPDATE thread SET votes=votes-1 WHERE id=?",
-                                new Object[]{objVote.getThreadId()});
-                    }
-                    result = jdbcTemplate.queryForObject(
-                            "SELECT * FROM thread WHERE id =?",
-                            new Object[]{objVote.getThreadId()}, new ThreadMapper());
+            final List<ObjVote> objVoteList = jdbcTemplate.query(
+                    "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
+                    new Object[]{objVote.getThreadId(), objVote.getNickname()}, new VoteMapper());
 
+            if (objVoteList.isEmpty()) {
+                if (objVote.getVoice() == 1)
                     jdbcTemplate.update(
-                            "INSERT INTO vote (id,nickname,voice,slug) VALUES(?,?,?,?)",
-                            objVote.getThreadId(), objVote.getNickname(), objVote.getVoice(), result.getSlug());
-                } else {
+                            "UPDATE thread SET votes=votes+1 WHERE id=?",
+                            new Object[]{objVote.getThreadId()});
+                else {
                     jdbcTemplate.update(
-                            "UPDATE vote SET voice=? WHERE id=?",
-                            objVote.getVoice(), objVote.getThreadId());
-                    if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1))
-                        jdbcTemplate.update(
-                                "UPDATE thread SET votes=votes-2 WHERE id=?",
-                                new Object[]{objVote.getThreadId()});
-
-                    if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1))
-                        jdbcTemplate.update(
-                                "UPDATE thread SET votes=votes+2 WHERE id=?",
-                                new Object[]{objVote.getThreadId()});
-
-                    result = jdbcTemplate.queryForObject(
-                            "SELECT * FROM thread WHERE id =?",
-                            new Object[]{objVote.getThreadId()}, new ThreadMapper());
+                            "UPDATE thread SET votes=votes-1 WHERE id=?",
+                            new Object[]{objVote.getThreadId()});
                 }
+                result = jdbcTemplate.queryForObject(
+                        "SELECT * FROM thread WHERE id =?",
+                        new Object[]{objVote.getThreadId()}, new ThreadMapper());
 
-                result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
-                return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+                jdbcTemplate.update(
+                        "INSERT INTO vote (id,nickname,voice,slug) VALUES(?,?,?,?)",
+                        objVote.getThreadId(), objVote.getNickname(), objVote.getVoice(), result.getSlug());
             } else {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                jdbcTemplate.update(
+                        "UPDATE vote SET voice=? WHERE id=?",
+                        objVote.getVoice(), objVote.getThreadId());
+                if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1))
+                    jdbcTemplate.update(
+                            "UPDATE thread SET votes=votes-2 WHERE id=?",
+                            new Object[]{objVote.getThreadId()});
+
+                if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1))
+                    jdbcTemplate.update(
+                            "UPDATE thread SET votes=votes+2 WHERE id=?",
+                            new Object[]{objVote.getThreadId()});
+
+                result = jdbcTemplate.queryForObject(
+                        "SELECT * FROM thread WHERE id =?",
+                        new Object[]{objVote.getThreadId()}, new ThreadMapper());
             }
+
+            result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
+            return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
         } else {
             objVote.setSlug(objSlugOrId.getSlug());
 
-            final List<ObjThread> objThreadList = jdbcTemplate.query(
+          /*  final List<ObjThread> objThreadList = jdbcTemplate.query(
                     "SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
                     new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
 
             final List<ObjUser> objUserList = jdbcTemplate.query(
                     "SELECT * FROM users WHERE LOWER(nickname)=LOWER(?)",
-                    new Object[]{objVote.getNickname()}, new UserMapper());
+                    new Object[]{objVote.getNickname()}, new UserMapper());*/
 
-            if (!objThreadList.isEmpty() && !objUserList.isEmpty()) {
-                final List<ObjVote> objVoteList = jdbcTemplate.query(
-                        "SELECT * FROM vote WHERE (LOWER(slug),LOWER(nickname))=(LOWER(?),LOWER(?))",
-                        new Object[]{objVote.getSlug(), objVote.getNickname()}, new VoteMapper());
+            final List<ObjVote> objVoteList = jdbcTemplate.query(
+                    "SELECT * FROM vote WHERE (LOWER(slug),LOWER(nickname))=(LOWER(?),LOWER(?))",
+                    new Object[]{objVote.getSlug(), objVote.getNickname()}, new VoteMapper());
 
-                if (objVoteList.isEmpty()) {
-                    jdbcTemplate.update(
-                            "INSERT INTO vote (slug,nickname,voice) VALUES(?,?,?)",
-                            objVote.getSlug(), objVote.getNickname(), objVote.getVoice());
-                    if (objVote.getVoice() == 1)
-                        jdbcTemplate.update("UPDATE thread SET votes=votes+1 WHERE LOWER(slug)=LOWER(?)",
-                                objSlugOrId.getSlug());
-                    else {
-                        jdbcTemplate.update("UPDATE thread SET votes=votes-1 WHERE LOWER(slug)=LOWER(?)",
-                                objSlugOrId.getSlug());
-                    }
-
-                    result = jdbcTemplate.queryForObject(
-                            "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
-                            new Object[]{objVote.getSlug()}, new ThreadMapper());
-
-                    jdbcTemplate.update(
-                            "UPDATE vote SET id=? WHERE LOWER(slug)=LOWER(?)",
-                            result.getId(), result.getSlug());
-                } else {
-                    jdbcTemplate.update(
-                            "UPDATE vote SET voice=? WHERE LOWER(slug)=LOWER(?)",
-                            objVote.getVoice(), objVote.getSlug());
-
-                    if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1)) {
-                        jdbcTemplate.update(
-                                "UPDATE thread SET votes=votes-2 WHERE LOWER(slug)=LOWER(?)",
-                                objSlugOrId.getSlug());
-                    }
-                    if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1)) {
-                        jdbcTemplate.update(
-                                "UPDATE thread SET votes=votes+2 WHERE LOWER(slug)=LOWER(?)",
-                                objSlugOrId.getSlug());
-                    }
-                    result = jdbcTemplate.queryForObject(
-                            "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
-                            new Object[]{objVote.getSlug()}, new ThreadMapper());
+            if (objVoteList.isEmpty()) {
+                jdbcTemplate.update(
+                        "INSERT INTO vote (slug,nickname,voice) VALUES(?,?,?)",
+                        objVote.getSlug(), objVote.getNickname(), objVote.getVoice());
+                if (objVote.getVoice() == 1)
+                    jdbcTemplate.update("UPDATE thread SET votes=votes+1 WHERE LOWER(slug)=LOWER(?)",
+                            objSlugOrId.getSlug());
+                else {
+                    jdbcTemplate.update("UPDATE thread SET votes=votes-1 WHERE LOWER(slug)=LOWER(?)",
+                            objSlugOrId.getSlug());
                 }
-                result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
-                return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+
+                result = jdbcTemplate.queryForObject(
+                        "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
+                        new Object[]{objVote.getSlug()}, new ThreadMapper());
+
+                jdbcTemplate.update(
+                        "UPDATE vote SET id=? WHERE LOWER(slug)=LOWER(?)",
+                        result.getId(), result.getSlug());
             } else {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                jdbcTemplate.update(
+                        "UPDATE vote SET voice=? WHERE LOWER(slug)=LOWER(?)",
+                        objVote.getVoice(), objVote.getSlug());
+
+                if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1)) {
+                    jdbcTemplate.update(
+                            "UPDATE thread SET votes=votes-2 WHERE LOWER(slug)=LOWER(?)",
+                            objSlugOrId.getSlug());
+                }
+                if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1)) {
+                    jdbcTemplate.update(
+                            "UPDATE thread SET votes=votes+2 WHERE LOWER(slug)=LOWER(?)",
+                            objSlugOrId.getSlug());
+                }
+                result = jdbcTemplate.queryForObject(
+                        "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
+                        new Object[]{objVote.getSlug()}, new ThreadMapper());
             }
+            result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
+            return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
         }
     }
 
@@ -415,21 +417,28 @@ public class ThreadService {
         }
     }
 
+    public ObjThread getObjThread(String slug_or_id) {
+        final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
+        final ObjThread objThread;
+        try {
+            if (!objSlugOrId.getFlag()) {
+                objThread = jdbcTemplate.queryForObject("SELECT * FROM thread WHERE id=?",
+                        new Object[]{objSlugOrId.getId()}, new ThreadMapper());
+            } else {
+                objThread = jdbcTemplate.queryForObject("SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
+                        new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
+            }
+        } catch (Exception e){
+            return null;
+        }
+        return objThread;
+    }
+
     public ResponseEntity<String> updateThread(ObjThread newData, String slug_or_id) {
-        final String prevTitle = newData.getTitle();
-        final String prevMess = newData.getMessage();
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
 
-        /*if (!objSlugOrId.getFlag()) {
-            threadsList = jdbcTemplate.query("SELECT * FROM thread WHERE id=?",
-                    new Object[]{objSlugOrId.getId()}, new ThreadMapper());
-        } else {
-            threadsList = jdbcTemplate.query("SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
-                    new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
-        }*/
-
-        if (this.getThreadDetails(slug_or_id).equals(HttpStatus.OK)) {
-            if (!newData.isEmpty()) {
+        if (this.getThreadDetails(slug_or_id).getStatusCode() == HttpStatus.OK) {
+            if(newData.getMessage()!=null && newData.getTitle()!=null){
                 try {
                     if (!objSlugOrId.getFlag()) {
                         jdbcTemplate.update("UPDATE thread SET message=?, title=? WHERE id=?",
@@ -441,19 +450,35 @@ public class ThreadService {
                 } catch (Exception e) {
                     return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
                 }
+            } else if(newData.getMessage()!=null && newData.getTitle()==null){
+                try {
+                    if (!objSlugOrId.getFlag()) {
+                        jdbcTemplate.update("UPDATE thread SET message=? WHERE id=?",
+                                newData.getMessage(), objSlugOrId.getId());
+                    } else {
+                        jdbcTemplate.update("UPDATE thread SET message=? WHERE LOWER(slug)=LOWER(?)",
+                                newData.getMessage(), objSlugOrId.getSlug());
+                    }
+                } catch (Exception e) {
+                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                }
+            } else if(newData.getMessage()==null && newData.getTitle()!=null){
+                try {
+                    if (!objSlugOrId.getFlag()) {
+                        jdbcTemplate.update("UPDATE thread SET  title=? WHERE id=?",
+                                newData.getTitle(), objSlugOrId.getId());
+                    } else {
+                        jdbcTemplate.update("UPDATE thread SET title=? WHERE LOWER(slug)=LOWER(?)",
+                                newData.getTitle(), objSlugOrId.getSlug());
+                    }
+                } catch (Exception e) {
+                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                }
             }
 
-            if (!objSlugOrId.getFlag()) {
-                newData = jdbcTemplate.queryForObject("SELECT * FROM thread WHERE id=?",
-                        new Object[]{objSlugOrId.getId()}, new ThreadMapper());
-            } else {
-                newData = jdbcTemplate.queryForObject("SELECT * FROM thread WHERE LOWER(slug)=LOWER(?)",
-                        new Object[]{objSlugOrId.getSlug()}, new ThreadMapper());
-            }
-
-            if (!newData.isEmpty()) {
-                newData.setTitle(prevTitle);
-                newData.setMessage(prevMess);
+            final ObjThread objThread = this.getObjThread(slug_or_id);
+            if (objThread != null) {
+                newData = objThread;
                 newData.setCreated(TransformDate.transformWithAppend00(newData.getCreated()));
             }
 

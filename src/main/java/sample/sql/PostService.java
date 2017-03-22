@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import sample.objects.ObjForum;
 import sample.objects.ObjPost;
+import sample.objects.ObjThread;
+import sample.objects.ObjUser;
 import sample.rowsmap.PostMapper;
 import sample.rowsmap.ThreadMapper;
 import sample.support.TransformDate;
@@ -42,25 +44,25 @@ public class PostService {
         for (String option : arrRelated) {
             switch (option) {
                 case "user": {
-                    final ResponseEntity responseEntity = new UserService(jdbcTemplate).get(objPost.getAuthor());
-                    if (responseEntity.getStatusCode().equals(HttpStatus.OK)) {
-                        result.put("author", new JSONObject(responseEntity.getBody()));
+                    final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objPost.getAuthor());
+                    if (objUser != null) {
+                        result.put("author", objUser.getJson());
                     }
                     break;
                 }
                 case "forum": {
-                    final ResponseEntity responseEntity = new ForumService(jdbcTemplate)
-                            .details(objPost.getForum());
-                    if (responseEntity.getStatusCode().equals(HttpStatus.OK)) {
-                        result.put("forum", new JSONObject(responseEntity.getBody()));
+                    final ObjForum objForum = new ForumService(jdbcTemplate).getObjForum(objPost.getForum());
+                    if (objForum != null) {
+                        result.put("forum", objForum.getJson());
                     }
                     break;
                 }
                 case "thread": {
-                    final ResponseEntity responseEntity = new ThreadService(jdbcTemplate)
-                            .getThreadDetails(String.valueOf(objPost.getThread()));
-                    if (responseEntity.getStatusCode().equals(HttpStatus.OK)) {
-                        result.put("thread", new JSONObject(responseEntity.getBody()));
+                    final ObjThread objThread = new ThreadService(jdbcTemplate).getObjThread(
+                            String.valueOf(objPost.getThread()));
+                    if (objThread != null) {
+                        objThread.setCreated(TransformDate.transformWithAppend00(objThread.getCreated()));
+                        result.put("thread", objThread.getJson());
                     }
                     break;
                 }
@@ -71,24 +73,37 @@ public class PostService {
 
     public ResponseEntity<String> update(Integer id, ObjPost newPost) {
         final ObjPost objPost;
-        try {
-            objPost = jdbcTemplate.queryForObject(
-                    "SELECT * FROM post WHERE id=?",
-                    new Object[]{id}, new PostMapper());
-        } catch (Exception e) {
-            return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-        }
-
-        if (objPost.getEdited()) {
-            jdbcTemplate.update("UPDATE post SET message=? WHERE id=?",
-                    newPost.getMessage(), objPost.getId());
+        if (newPost.getMessage() != null) {
+            try {
+                objPost = jdbcTemplate.queryForObject(
+                        "SELECT * FROM post WHERE id=?",
+                        new Object[]{id}, new PostMapper());
+            } catch (Exception e) {
+                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+            }
+            if (!newPost.getMessage().equals(objPost.getMessage())) {
+                if (objPost.getEdited()) {
+                    jdbcTemplate.update("UPDATE post SET message=? WHERE id=?",
+                            newPost.getMessage(), objPost.getId());
+                } else {
+                    jdbcTemplate.update("UPDATE post SET message=?, isedited=true WHERE id=?",
+                            newPost.getMessage(), objPost.getId());
+                    objPost.setEdited(true);
+                }
+                objPost.setMessage(newPost.getMessage());
+            }
+            objPost.setCreated(TransformDate.transformWithAppend00(objPost.getCreated()));
+            return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
         } else {
-            jdbcTemplate.update("UPDATE post SET message=?, isedited=true WHERE id=?",
-                    newPost.getMessage(), objPost.getId());
-            objPost.setEdited(true);
+            try {
+                objPost = jdbcTemplate.queryForObject(
+                        "SELECT * FROM post WHERE id=?",
+                        new Object[]{id}, new PostMapper());
+            } catch (Exception e) {
+                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+            }
+            objPost.setCreated(TransformDate.transformWithAppend00(objPost.getCreated()));
+            return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
         }
-        objPost.setMessage(newPost.getMessage());
-        objPost.setCreated(TransformDate.transformWithAppend00(objPost.getCreated()));
-        return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
     }
 }

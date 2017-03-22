@@ -47,6 +47,17 @@ public class UserService {
         }
     }
 
+    public ObjUser getObjUser(String nickname){
+        try {
+            final ObjUser user = jdbcTemplate.queryForObject(
+                    "SELECT * FROM users WHERE LOWER(nickname) = LOWER(?)",
+                    new Object[]{nickname}, new UserMapper());
+            return user;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public ResponseEntity<String> get(String nickname) {
         try {
             final ObjUser user = jdbcTemplate.queryForObject(

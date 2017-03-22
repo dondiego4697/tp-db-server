@@ -39,8 +39,9 @@ public class ObjThread {
     }
 
     public boolean isEmpty() {
-        if (this.author == null || this.created == null ||
-                this.forum == null || this.message == null || this.title == null) {
+        /*if (this.author == null || this.created == null ||
+                this.forum == null || this.message == null || this.title == null) {*/
+        if (this.message == null || this.title == null) {
             return true;
         } else {
             return false;

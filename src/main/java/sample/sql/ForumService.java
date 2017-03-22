@@ -60,14 +60,22 @@ public class ForumService {
         return new ResponseEntity<>(objForum.getJson().toString(), HttpStatus.CREATED);
     }
 
+    public ObjForum getObjForum(String slug){
+        try {
+            final ObjForum forum = jdbcTemplate.queryForObject(
+                    "SELECT * FROM forum WHERE LOWER(slug) = LOWER(?)",
+                    new Object[]{slug}, new ForumMapper());
+            return forum;
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     public ResponseEntity<String> details(String slug) {
         try {
             final ObjForum forum = jdbcTemplate.queryForObject(
                     "SELECT * FROM forum WHERE LOWER(slug) = LOWER(?)",
                     new Object[]{slug}, new ForumMapper());
-            System.out.println(forum.getJson());
-            System.out.println(slug);
             return new ResponseEntity<>(forum.getJson().toString(), HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
