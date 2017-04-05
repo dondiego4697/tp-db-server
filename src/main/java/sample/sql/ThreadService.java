@@ -57,6 +57,7 @@ public class ThreadService {
         }
 
 
+        String createdTimeWithTS = null;
         String createdTime = null;
         final JSONArray result = new JSONArray();
 
@@ -92,7 +93,7 @@ public class ThreadService {
                 final String path = ValueConverter.toHex(count);
                 objPost.setPath(path);
 
-                if (createdTime == null) {
+                if (createdTimeWithTS == null) {
                     jdbcTemplate.update(connection -> {
                         final PreparedStatement ps = connection.prepareStatement(
                                 "INSERT INTO post (parent,author,message,isEdited,forum,thread,path) " +
@@ -132,7 +133,7 @@ public class ThreadService {
                         new Object[]{objPost.getParent()}, String.class
                 );
 
-                if (createdTime == null) {
+                if (createdTimeWithTS == null) {
                     jdbcTemplate.update(connection -> {
                         final PreparedStatement ps = connection.prepareStatement(
                                 "INSERT INTO post (parent,author,message,isEdited,forum,thread) " +
@@ -172,11 +173,12 @@ public class ThreadService {
                         "UPDATE post SET path=? WHERE id=?",
                         new Object[]{path, id});
             }
-            if (createdTime == null) {
-                createdTime = TransformDate.transformWithAppend0300(
+            if (createdTimeWithTS == null) {
+                createdTimeWithTS = TransformDate.transformWithAppend0300(
                         holder.getKeys().get("created").toString());
+                createdTime = holder.getKeys().get("created").toString();
             }
-            objPost.setCreated(createdTime);
+            objPost.setCreated(createdTimeWithTS);
             result.put(objPost.getJson());
         }
 
@@ -325,7 +327,6 @@ public class ThreadService {
         if (objThread != null) {
             final ObjThread thread = objThread;
             postQuery.append(thread.getId());
-            System.out.println("awwaw=" + thread.getId());
 
             List<ObjPost> posts = null;
             if (sort == null) sort = "flat";
@@ -418,7 +419,7 @@ public class ThreadService {
             final JSONArray resultArray = new JSONArray();
             if (posts != null) {
                 for (ObjPost objPost : posts) {
-                    objPost.setCreated(TransformDate.transformWithAppend00(objPost.getCreated()));
+                    objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
                     resultArray.put(objPost.getJson());
                 }
             }
