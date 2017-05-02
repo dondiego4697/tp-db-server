@@ -125,7 +125,7 @@ public class ForumService {
         if (forum.getStatusCode() == HttpStatus.NOT_FOUND) return forum;
 
         final StringBuilder SQLThreads = new StringBuilder(
-                "SELECT * FROM thread WHERE forum=?");
+                "SELECT * FROM thread WHERE LOWER(forum)=LOWER(?) ");
         if (since != null) {
             since = TransformDate.replaceOnSpace(since);
 
