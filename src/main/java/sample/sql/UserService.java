@@ -3,13 +3,15 @@ package sample.sql;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import sample.objects.ObjUser;
 import sample.rowsmap.UserMapper;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,7 +26,9 @@ public class UserService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> create(ObjUser objUser, String nickname) {
+        System.out.println("Create USER with nickname " + nickname);
         objUser.setNickname(nickname);
         try {
             jdbcTemplate.update("INSERT INTO users (nickname,fullname,about,email) VALUES (?,?,?,?)",
@@ -32,7 +36,8 @@ public class UserService {
                     objUser.getAbout(), objUser.getEmail());
 
             return new ResponseEntity<>(objUser.getJson().toString(), HttpStatus.CREATED);
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
+            System.out.println(e);
             final List<ObjUser> users = jdbcTemplate.query(
                     "SELECT * FROM users WHERE LOWER(email)=LOWER(?) OR LOWER(nickname)=LOWER(?)",
                     new Object[]{objUser.getEmail(),

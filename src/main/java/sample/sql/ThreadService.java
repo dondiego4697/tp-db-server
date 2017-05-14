@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import sample.objects.*;
 import sample.rowsmap.PostMapper;
 import sample.rowsmap.ThreadMapper;
@@ -17,7 +19,14 @@ import sample.support.ValueConverter;
 import sample.support.TransformDate;
 
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -33,6 +42,7 @@ public class ThreadService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, String slug_or_id) {
         final ObjThread objThread;
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
@@ -57,8 +67,7 @@ public class ThreadService {
         }
 
 
-        String createdTimeWithTS = null;
-        String createdTime = null;
+        final Timestamp now = new Timestamp(System.currentTimeMillis());
         final JSONArray result = new JSONArray();
 
         for (ObjPost objPost : arrObjPost) {
@@ -85,6 +94,7 @@ public class ThreadService {
 
 
             final KeyHolder holder = new GeneratedKeyHolder();
+
             if (objPost.getParent() == 0) {
                 final Integer count = jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM post WHERE parent=0 AND thread=?",
@@ -93,37 +103,7 @@ public class ThreadService {
                 final String path = ValueConverter.toHex(count);
                 objPost.setPath(path);
 
-                if (createdTimeWithTS == null) {
-                    jdbcTemplate.update(connection -> {
-                        final PreparedStatement ps = connection.prepareStatement(
-                                "INSERT INTO post (parent,author,message,isEdited,forum,thread,path) " +
-                                        "VALUES (?,?,?,?,?,?,?)", new String[]{"id", "created"});
-                        ps.setInt(1, objPost.getParent());
-                        ps.setString(2, objPost.getAuthor());
-                        ps.setString(3, objPost.getMessage());
-                        ps.setBoolean(4, objPost.getEdited());
-                        ps.setString(5, objPost.getForum());
-                        ps.setInt(6, objPost.getThread());
-                        ps.setString(7, objPost.getPath());
-                        return ps;
-                    }, holder);
-                } else {
-                    final String time = createdTime;
-                    jdbcTemplate.update(connection -> {
-                        final PreparedStatement ps = connection.prepareStatement(
-                                "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                                        "VALUES (?,?,?,?,?,?,?,?::timestamptz)", new String[]{"id", "created"});
-                        ps.setInt(1, objPost.getParent());
-                        ps.setString(2, objPost.getAuthor());
-                        ps.setString(3, objPost.getMessage());
-                        ps.setBoolean(4, objPost.getEdited());
-                        ps.setString(5, objPost.getForum());
-                        ps.setInt(6, objPost.getThread());
-                        ps.setString(7, objPost.getPath());
-                        ps.setString(8, time);
-                        return ps;
-                    }, holder);
-                }
+                insertPostWithTimestamp(objPost, holder, now);
 
                 objPost.setId((int) holder.getKeys().get("id"));
 
@@ -133,36 +113,7 @@ public class ThreadService {
                         new Object[]{objPost.getParent()}, String.class
                 );
 
-                if (createdTimeWithTS == null) {
-                    jdbcTemplate.update(connection -> {
-                        final PreparedStatement ps = connection.prepareStatement(
-                                "INSERT INTO post (parent,author,message,isEdited,forum,thread) " +
-                                        "VALUES (?,?,?,?,?,?)", new String[]{"id", "created"});
-                        ps.setInt(1, objPost.getParent());
-                        ps.setString(2, objPost.getAuthor());
-                        ps.setString(3, objPost.getMessage());
-                        ps.setBoolean(4, objPost.getEdited());
-                        ps.setString(5, objPost.getForum());
-                        ps.setInt(6, objPost.getThread());
-                        return ps;
-                    }, holder);
-                } else {
-                    final String time = createdTime;
-                    jdbcTemplate.update(connection -> {
-                        final PreparedStatement ps = connection.prepareStatement(
-                                "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                                        "VALUES (?,?,?,?,?,?,?,?::timestamptz)", new String[]{"id", "created"});
-                        ps.setInt(1, objPost.getParent());
-                        ps.setString(2, objPost.getAuthor());
-                        ps.setString(3, objPost.getMessage());
-                        ps.setBoolean(4, objPost.getEdited());
-                        ps.setString(5, objPost.getForum());
-                        ps.setInt(6, objPost.getThread());
-                        ps.setString(7, objPost.getPath());
-                        ps.setString(8, time);
-                        return ps;
-                    }, holder);
-                }
+                insertPostWithTimestamp(objPost, holder, now);
 
                 final int id = (int) holder.getKeys().get("id");
                 objPost.setId(id);
@@ -173,19 +124,79 @@ public class ThreadService {
                         "UPDATE post SET path=? WHERE id=?",
                         new Object[]{path, id});
             }
-            if (createdTimeWithTS == null) {
-                createdTimeWithTS = TransformDate.transformWithAppend0300(
-                        holder.getKeys().get("created").toString());
-                createdTime = holder.getKeys().get("created").toString();
-            }
-            objPost.setCreated(createdTimeWithTS);
+
+            objPost.setCreated(now);
+
             result.put(objPost.getJson());
         }
 
         jdbcTemplate.update(
                 "UPDATE forum SET posts=posts+" + arrObjPost.size() + " WHERE LOWER(slug)=LOWER(?)",
                 objThread.getForum());
+
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
+    }
+
+   /* public Timestamp stringToTimestamp(String time){
+        Timestamp timestamp = null;
+        try {
+            final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX");
+            final Date parsedDate = dateFormat.parse(time);
+            timestamp = new Timestamp(parsedDate.getTime());
+        } catch (Exception e) {
+            System.out.println(e.toString());
+        }
+        return timestamp;
+    }*/
+
+    /*public void insertPost(ObjPost objPost, KeyHolder holder) {
+        jdbcTemplate.update(connection -> {
+            final PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path) " +
+                            "VALUES (?,?,?,?,?,?,?)", new String[]{"id", "created"});
+            ps.setInt(1, objPost.getParent());
+            ps.setString(2, objPost.getAuthor());
+            ps.setString(3, objPost.getMessage());
+            ps.setBoolean(4, objPost.getEdited());
+            ps.setString(5, objPost.getForum());
+            ps.setInt(6, objPost.getThread());
+            ps.setString(7, objPost.getPath());
+            return ps;
+        }, holder);
+    }
+
+    public void insertPostWithTime(ObjPost objPost, KeyHolder holder, String time) {
+        jdbcTemplate.update(connection -> {
+            final PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
+                            "VALUES (?,?,?,?,?,?,?,?::timestamptz)", new String[]{"id", "created"});
+            ps.setInt(1, objPost.getParent());
+            ps.setString(2, objPost.getAuthor());
+            ps.setString(3, objPost.getMessage());
+            ps.setBoolean(4, objPost.getEdited());
+            ps.setString(5, objPost.getForum());
+            ps.setInt(6, objPost.getThread());
+            ps.setString(7, objPost.getPath());
+            ps.setString(8, time);
+            return ps;
+        }, holder);
+    }*/
+
+    public void insertPostWithTimestamp(ObjPost objPost, KeyHolder holder, Timestamp time) {
+        jdbcTemplate.update(connection -> {
+            final PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
+                            "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", new String[]{"id", "created"});
+            ps.setInt(1, objPost.getParent());
+            ps.setString(2, objPost.getAuthor());
+            ps.setString(3, objPost.getMessage());
+            ps.setBoolean(4, objPost.getEdited());
+            ps.setString(5, objPost.getForum());
+            ps.setInt(6, objPost.getThread());
+            ps.setString(7, objPost.getPath());
+            ps.setTimestamp(8, time);
+            return ps;
+        }, holder);
     }
 
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
@@ -419,7 +430,8 @@ public class ThreadService {
             final JSONArray resultArray = new JSONArray();
             if (posts != null) {
                 for (ObjPost objPost : posts) {
-                    objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+                    //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+                    objPost.setCreated(objPost.getCreated());
                     resultArray.put(objPost.getJson());
                 }
             }

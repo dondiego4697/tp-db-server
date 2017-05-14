@@ -1,8 +1,12 @@
 package sample.objects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.json.JSONObject;
+import sample.support.TransformDate;
+
+import java.sql.Timestamp;
 
 /**
  * Created by Denis on 20.03.2017.
@@ -11,8 +15,11 @@ public class ObjPost {
     @SuppressWarnings("MultipleVariablesInDeclaration")
     private int id, parent, thread;
     @SuppressWarnings("MultipleVariablesInDeclaration")
-    private String author, message, forum, created, path;
+    private String author, message, forum, path;
     private boolean isEdited;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSX")
+    private Timestamp created;
 
     public ObjPost(){
 
@@ -28,7 +35,7 @@ public class ObjPost {
             @JsonProperty("isEdited") boolean isEdited,
             @JsonProperty("forum") String forum,
             @JsonProperty("path") String path,
-            @JsonProperty("created") String created) {
+            @JsonProperty("created") Timestamp created) {
         this.id = id;
         this.parent=parent;
         this.author =author;
@@ -73,7 +80,7 @@ public class ObjPost {
         return author;
     }
 
-    public String getCreated() {
+    public Timestamp getCreated() {
         return created;
     }
 
@@ -93,7 +100,7 @@ public class ObjPost {
         this.author = author;
     }
 
-    public void setCreated(String created) {
+    public void setCreated(Timestamp created) {
         this.created = created;
     }
 
@@ -121,7 +128,7 @@ public class ObjPost {
         jsonObject.put("isEdited", isEdited);
         jsonObject.put("thread", thread);
         jsonObject.put("forum", forum);
-        jsonObject.put("created", created);
+        jsonObject.put("created", TransformDate.transformWithAppend0300(created.toString()));
         return jsonObject;
     }
 }

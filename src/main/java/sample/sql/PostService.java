@@ -35,7 +35,8 @@ public class PostService {
         }
 
         final JSONObject result = new JSONObject();
-        objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+        //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+        objPost.setCreated(objPost.getCreated());
         result.put("post", objPost.getJson());
 
         final String[] arrRelated = related.split(",");
@@ -98,14 +99,16 @@ public class PostService {
                 }
                 objPost.setMessage(newPost.getMessage());
             }
-            objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+            //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+            objPost.setCreated(objPost.getCreated());
             return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
         } else {
             objPost = this.getObjPost(id);
             if(objPost == null){
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
-            objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+            //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
+            objPost.setCreated(objPost.getCreated());
             return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
         }
     }

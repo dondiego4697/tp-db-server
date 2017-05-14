@@ -15,7 +15,7 @@ public class PostMapper implements RowMapper<ObjPost> {
         final ObjPost objPost = new ObjPost();
         objPost.setId(resultSet.getInt("id"));
         objPost.setAuthor(resultSet.getString("author"));
-        objPost.setCreated(resultSet.getString("created"));
+        objPost.setCreated(resultSet.getTimestamp("created"));
         objPost.setForum(resultSet.getString("forum"));
         objPost.setEdited(resultSet.getBoolean("isEdited"));
         objPost.setMessage(resultSet.getString("message"));

@@ -9,6 +9,7 @@ import sample.objects.ObjVote;
 import sample.sql.ThreadService;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Denis on 17.02.2017.
