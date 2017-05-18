@@ -199,6 +199,7 @@ public class ThreadService {
         }, holder);
     }
 
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         final ObjThread result;

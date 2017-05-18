@@ -28,7 +28,6 @@ public class UserService {
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> create(ObjUser objUser, String nickname) {
-        System.out.println("Create USER with nickname " + nickname);
         objUser.setNickname(nickname);
         try {
             jdbcTemplate.update("INSERT INTO users (nickname,fullname,about,email) VALUES (?,?,?,?)",

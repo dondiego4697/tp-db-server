@@ -170,7 +170,7 @@ public class ForumService {
         if (forum.getStatusCode() == HttpStatus.NOT_FOUND) return forum;
 
         final StringBuilder query = new StringBuilder(
-                "SELECT *, OCTET_LENGTH(LOWER(nickname)) FROM users WHERE nickname IN")
+                "SELECT * FROM users WHERE nickname IN")
                 .append("(SELECT u.nickname FROM users as u FULL OUTER JOIN post as p ")
                 .append("ON LOWER(u.nickname)=LOWER(p.author) FULL OUTER JOIN thread as t ")
                 .append("ON LOWER(u.nickname)=LOWER(t.author) WHERE LOWER(p.forum)=LOWER(?) ")
@@ -183,7 +183,7 @@ public class ForumService {
                 query.append(" AND nickname>'").append(since).append("'");
             }
         }
-        query.append("  ORDER BY nickname");
+        query.append(" ORDER BY nickname");
 
         if (desc != null && desc) query.append(" DESC");
 

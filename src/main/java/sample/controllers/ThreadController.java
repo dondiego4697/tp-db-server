@@ -29,6 +29,7 @@ public class ThreadController {
     @RequestMapping(path = "/{slug_or_id}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createPost(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ArrayList<ObjPost> body) {
+        System.out.println("Create POST with slug/id " + slug_or_id);
         return (threadService.createPosts(body, slug_or_id));
     }
 
@@ -59,6 +60,7 @@ public class ThreadController {
     @RequestMapping(path = "/{slug_or_id}/vote", method = RequestMethod.POST)
     public ResponseEntity<String> voteThread(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ObjVote body) {
+        System.out.println("Create VOTE with slug/id " + slug_or_id);
         return (threadService.vote(body, slug_or_id));
     }
 }
