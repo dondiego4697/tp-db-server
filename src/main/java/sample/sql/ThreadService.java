@@ -3,6 +3,8 @@ package sample.sql;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -199,7 +201,7 @@ public class ThreadService {
         }, holder);
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+//    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         final ObjThread result;
@@ -208,102 +210,69 @@ public class ThreadService {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 
-        if (this.getObjThread(slug_or_id) == null) {
+        ObjThread objThread = this.getObjThread(slug_or_id);
+        if (objThread == null) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 
-        if (!objSlugOrId.getFlag()) {
-            objVote.setThreadId(objSlugOrId.getId());
 
-            final List<ObjVote> objVoteList = jdbcTemplate.query(
-                    "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
-                    new Object[]{objVote.getThreadId(), objVote.getNickname()}, new VoteMapper());
-
-            if (objVoteList.isEmpty()) {
-                if (objVote.getVoice() == 1)
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes+1 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-                else {
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes-1 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-                }
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE id =?",
-                        new Object[]{objVote.getThreadId()}, new ThreadMapper());
-
-                jdbcTemplate.update(
-                        "INSERT INTO vote (id,nickname,voice,slug) VALUES(?,?,?,?)",
-                        objVote.getThreadId(), objVote.getNickname(), objVote.getVoice(), result.getSlug());
-            } else {
-                jdbcTemplate.update(
-                        "UPDATE vote SET voice=? WHERE id=?",
-                        objVote.getVoice(), objVote.getThreadId());
-                if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1))
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes-2 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-
-                if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1))
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes+2 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE id =?",
-                        new Object[]{objVote.getThreadId()}, new ThreadMapper());
-            }
-
-            result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
-            return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+        if (objVote.getVoice() == 1) {
+            vote(objVote, objThread.getId());
         } else {
-            objVote.setSlug(objSlugOrId.getSlug());
+            unvote(objVote, objThread.getId());
+        }
 
-            final List<ObjVote> objVoteList = jdbcTemplate.query(
-                    "SELECT * FROM vote WHERE (LOWER(slug),LOWER(nickname))=(LOWER(?),LOWER(?))",
-                    new Object[]{objVote.getSlug(), objVote.getNickname()}, new VoteMapper());
+        result = jdbcTemplate.queryForObject(
+                "SELECT * FROM thread WHERE id =?",
+                new Object[]{objThread.getId()}, new ThreadMapper());
 
-            if (objVoteList.isEmpty()) {
-                jdbcTemplate.update(
-                        "INSERT INTO vote (slug,nickname,voice) VALUES(?,?,?)",
-                        objVote.getSlug(), objVote.getNickname(), objVote.getVoice());
-                if (objVote.getVoice() == 1)
-                    jdbcTemplate.update("UPDATE thread SET votes=votes+1 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                else {
-                    jdbcTemplate.update("UPDATE thread SET votes=votes-1 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                }
+        result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
+        return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+    }
 
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
-                        new Object[]{objVote.getSlug()}, new ThreadMapper());
+    public void vote(ObjVote objVote, Integer threadId) throws DataAccessException {
+        final List<ObjVote> objVoteList = jdbcTemplate.query(
+                "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
+                new Object[]{threadId, objVote.getNickname()}, new VoteMapper());
 
-                jdbcTemplate.update(
-                        "UPDATE vote SET id=? WHERE LOWER(slug)=LOWER(?)",
-                        result.getId(), result.getSlug());
-            } else {
-                jdbcTemplate.update(
-                        "UPDATE vote SET voice=? WHERE LOWER(slug)=LOWER(?)",
-                        objVote.getVoice(), objVote.getSlug());
+        String sql = "";
+        if (!objVoteList.isEmpty() && objVoteList.get(0).getVoice() == -1) {
+            sql = "UPDATE thread SET votes = votes + 2 WHERE id = ?; " +
+                    "UPDATE vote SET voice = 1 WHERE id = ? AND nickname = ?";
+        } else if(objVoteList.isEmpty()){
+            sql = "UPDATE thread SET votes = votes + 1 WHERE id = ?; " +
+                    "INSERT INTO vote (id, nickname, voice) VALUES (?, ?, 1)";
+        }
+        if(!sql.equals(""))
+            voteDeadlock(sql, threadId, objVote.getNickname());
+    }
 
-                if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1)) {
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes-2 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                }
-                if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1)) {
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes+2 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                }
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
-                        new Object[]{objVote.getSlug()}, new ThreadMapper());
+    public void unvote(ObjVote objVote, Integer threadId) throws DataAccessException {
+        final List<ObjVote> objVoteList = jdbcTemplate.query(
+                "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
+                new Object[]{threadId, objVote.getNickname()}, new VoteMapper());
+            String sql ="";
+            if (!objVoteList.isEmpty() && objVoteList.get(0).getVoice() == 1) {
+                sql = "UPDATE thread SET votes = votes - 2 WHERE id = ?; " +
+                        "UPDATE vote SET voice = -1 WHERE id = ? AND nickname = ?";
+            } else if(objVoteList.isEmpty()){
+                sql = "UPDATE thread SET votes = votes - 1 WHERE id = ?; " +
+                        "INSERT INTO vote (id, nickname, voice) VALUES (?, ?, -1)";
             }
-            result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
-            return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+            if(!sql.equals(""))
+                voteDeadlock(sql, threadId, objVote.getNickname());
+    }
+
+    private void voteDeadlock(String sql, int threadId, String nickname) {
+        try {
+            boolean finished = false;
+            while (!finished) {
+                jdbcTemplate.update(sql, threadId, threadId, nickname);
+                finished = true;
+            }
+
+        } catch (DeadlockLoserDataAccessException e){
+            System.out.println("VOTING_DEADLOCK!!!");
         }
     }
 

@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import sample.objects.ObjForum;
 import sample.objects.ObjThread;
 import sample.objects.ObjUser;
@@ -74,6 +76,7 @@ public class ForumService {
         }
     }
 
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
         try {
             final ObjThread objThread1 = new ThreadService(jdbcTemplate).getObjThreadBySlug(objThread.getSlug());
