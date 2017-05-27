@@ -1,6 +1,7 @@
 FROM ubuntu:16.04
 
 MAINTAINER Stepanov Denis
+SET synchronous_commit = off
 
 # Обвновление списка пакетов
 RUN apt-get -y update

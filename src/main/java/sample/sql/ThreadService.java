@@ -72,6 +72,8 @@ public class ThreadService {
         final Timestamp now = new Timestamp(System.currentTimeMillis());
         final JSONArray result = new JSONArray();
 
+        //TODO create
+
         for (ObjPost objPost : arrObjPost) {
             objPost.setForum(objThread.getForum());
             objPost.setThread(objThread.getId());
@@ -138,51 +140,6 @@ public class ThreadService {
 
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
     }
-
-   /* public Timestamp stringToTimestamp(String time){
-        Timestamp timestamp = null;
-        try {
-            final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX");
-            final Date parsedDate = dateFormat.parse(time);
-            timestamp = new Timestamp(parsedDate.getTime());
-        } catch (Exception e) {
-            System.out.println(e.toString());
-        }
-        return timestamp;
-    }*/
-
-    /*public void insertPost(ObjPost objPost, KeyHolder holder) {
-        jdbcTemplate.update(connection -> {
-            final PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path) " +
-                            "VALUES (?,?,?,?,?,?,?)", new String[]{"id", "created"});
-            ps.setInt(1, objPost.getParent());
-            ps.setString(2, objPost.getAuthor());
-            ps.setString(3, objPost.getMessage());
-            ps.setBoolean(4, objPost.getEdited());
-            ps.setString(5, objPost.getForum());
-            ps.setInt(6, objPost.getThread());
-            ps.setString(7, objPost.getPath());
-            return ps;
-        }, holder);
-    }
-
-    public void insertPostWithTime(ObjPost objPost, KeyHolder holder, String time) {
-        jdbcTemplate.update(connection -> {
-            final PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                            "VALUES (?,?,?,?,?,?,?,?::timestamptz)", new String[]{"id", "created"});
-            ps.setInt(1, objPost.getParent());
-            ps.setString(2, objPost.getAuthor());
-            ps.setString(3, objPost.getMessage());
-            ps.setBoolean(4, objPost.getEdited());
-            ps.setString(5, objPost.getForum());
-            ps.setInt(6, objPost.getThread());
-            ps.setString(7, objPost.getPath());
-            ps.setString(8, time);
-            return ps;
-        }, holder);
-    }*/
 
     public void insertPostWithTimestamp(ObjPost objPost, KeyHolder holder, Timestamp time) {
         jdbcTemplate.update(connection -> {
