@@ -57,3 +57,26 @@ CREATE TABLE vote (
   nickname VARCHAR(255),
   voice INTEGER
 );
+
+-- CREATE INDEX index_post__parent_thread ON post (parent ASC, thread ASC);
+-- CREATE INDEX index_post__thread ON post (thread ASC);
+--
+-- CREATE INDEX index_thread__slug ON thread (slug);
+--  CREATE INDEX index_vote__id_nickname ON vote (id, nickname);
+--
+-- CREATE INDEX index_user__nickname ON users (nickname);
+--
+-- CREATE INDEX index_forum__slug ON forum (slug);
+
+-- CREATE TRIGGER post_update_path AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postUpdatePath();
+--
+-- CREATE OR REPLACE FUNCTION postUpdatePath() RETURNS TRIGGER AS
+--   $BODY$
+--   BEGIN
+--     IF substring(new.path,1,1)='*' THEN
+--       UPDATE post SET path=concat(substring(new.path, 2, char_length(new.path) - 1), '.', lpad(to_hex(new.id)), 6, '0') WHERE id=new.id;
+--     END IF;
+--     RETURN new;
+--   END;
+--   $BODY$
+-- LANGUAGE plpgsql;

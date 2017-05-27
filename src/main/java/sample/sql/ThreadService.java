@@ -30,6 +30,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * Created by Denis on 20.03.2017.
@@ -42,6 +43,15 @@ public class ThreadService {
 
     public ThreadService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public Integer getMaxId() {
+        final Integer id = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
+        return id == null ? 0 : id;
+    }
+
+    public List<Integer> getPostIdsAfterId(Integer id) {
+        return jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{id}, Integer.class);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
@@ -74,9 +84,11 @@ public class ThreadService {
 
         //TODO create
 
+        List<Object[]> postList = new ArrayList<>();
         for (ObjPost objPost : arrObjPost) {
             objPost.setForum(objThread.getForum());
             objPost.setThread(objThread.getId());
+
 
             if (objPost.getParent() != 0) {
                 try {
@@ -107,9 +119,9 @@ public class ThreadService {
                 final String path = ValueConverter.toHex(count);
                 objPost.setPath(path);
 
-                insertPostWithTimestamp(objPost, holder, now);
+                /*insertPostWithTimestamp(objPost, holder, now);
 
-                objPost.setId((int) holder.getKeys().get("id"));
+                objPost.setId((int) holder.getKeys().get("id"));*/
 
             } else {
                 final String prevPath = jdbcTemplate.queryForObject(
@@ -117,22 +129,51 @@ public class ThreadService {
                         new Object[]{objPost.getParent()}, String.class
                 );
 
-                insertPostWithTimestamp(objPost, holder, now);
+                objPost.setPath('*'+prevPath);
+                /*insertPostWithTimestamp(objPost, holder, now);
 
                 final int id = (int) holder.getKeys().get("id");
-                objPost.setId(id);
+                objPost.setId(id);*/
 
-                final String path = prevPath + '.' + ValueConverter.toHex(id);
+                /*final String path = prevPath + '.' + ValueConverter.toHex(id);
                 objPost.setPath(path);
                 jdbcTemplate.update(
                         "UPDATE post SET path=? WHERE id=?",
-                        new Object[]{path, id});
+                        new Object[]{path, id});*/
             }
 
             objPost.setCreated(now);
 
-            result.put(objPost.getJson());
+            //result.put(objPost.getJson());
+
+            postList.add(new Object[]{
+                    objPost.getParent(),
+                    objPost.getAuthor(),
+                    objPost.getMessage(),
+                    objPost.getEdited(),
+                    objPost.getForum(),
+                    objPost.getThread(),
+                    objPost.getPath(),
+                    objPost.getCreated()
+            });
         }
+
+        final int maxId = getMaxId();
+
+        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
+                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
+
+
+
+        System.out.println("MAX="+maxId+" ");
+        List<Integer> idsList = getPostIdsAfterId(maxId);
+
+        IntStream.range(0, arrObjPost.size()).boxed()
+                .forEach(i -> {
+                    System.out.println("INDEX="+idsList.get(i)+" ");
+                    arrObjPost.get(i).setId(idsList.get(i));
+                    result.put(arrObjPost.get(i).getJson());
+                });
 
         jdbcTemplate.update(
                 "UPDATE forum SET posts=posts+" + arrObjPost.size() + " WHERE LOWER(slug)=LOWER(?)",
