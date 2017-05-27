@@ -20,16 +20,11 @@ import sample.support.ObjSlugOrId;
 import sample.support.ValueConverter;
 import sample.support.TransformDate;
 
-import java.sql.PreparedStatement;
 import java.sql.Timestamp;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -54,7 +49,29 @@ public class ThreadService {
         return jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{id}, Integer.class);
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public boolean checkPosts(List<Integer> idsList, int threadId) {
+        final ArrayList<Object> params = new ArrayList<>();
+        params.add(threadId);
+        params.addAll(idsList);
+        final String query = "SELECT COUNT(*) FROM post WHERE thread = ? AND id in ( " +
+                String.join(", ", Collections.nCopies(idsList.size(), "?")) + " )";
+        final Integer count = jdbcTemplate.queryForObject(query,
+                params.toArray(), Integer.class);
+        return count.equals(idsList.size());
+    }
+
+    private boolean checkPostParents(ArrayList<ObjPost> postsArr, int threadId) {
+        final List<Integer> parentIdsList = postsArr.stream()
+                .map(ObjPost::getParent)
+                .filter(parentId -> parentId != null && !parentId.equals(0))
+                .distinct()
+                .collect(Collectors.toList());
+
+        return parentIdsList.isEmpty() || checkPosts(parentIdsList, threadId);
+    }
+
+
+    @Transactional
     public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, String slug_or_id) {
         final ObjThread objThread;
         final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
@@ -83,25 +100,31 @@ public class ThreadService {
         final JSONArray result = new JSONArray();
 
         //TODO create
-
+        int rootsCount = 0;
         List<Object[]> postList = new ArrayList<>();
         for (ObjPost objPost : arrObjPost) {
             objPost.setForum(objThread.getForum());
             objPost.setThread(objThread.getId());
 
+           /* Boolean check = checkPostParents(arrObjPost, objThread.getId());
+            System.out.println("FINAL CHECK = " + check);*/
 
-            if (objPost.getParent() != 0) {
-                try {
-                    final List<ObjPost> posts = jdbcTemplate.query(
-                            "SELECT * FROM post WHERE id=? AND thread=?",
-                            new Object[]{objPost.getParent(), objThread.getId()}, new PostMapper());
-                    if (posts.isEmpty()) {
+            if (!checkPostParents(arrObjPost, objThread.getId())) {
+                return new ResponseEntity<>("", HttpStatus.CONFLICT);
+            }
+            /*if (objPost.getParent() != 0) {
+                    try {
+                        final List<ObjPost> posts = jdbcTemplate.query(
+                                "SELECT * FROM post WHERE id=? AND thread=?",
+                                new Object[]{objPost.getParent(), objThread.getId()}, new PostMapper());
+                        if (posts.isEmpty()) {
+                            return new ResponseEntity<>("", HttpStatus.CONFLICT);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("ERROR post parent = " + e);
                         return new ResponseEntity<>("", HttpStatus.CONFLICT);
                     }
-                } catch (Exception e) {
-                    return new ResponseEntity<>("", HttpStatus.CONFLICT);
-                }
-            }
+            }*/
 
             final ResponseEntity responseEntity = new UserService(jdbcTemplate).get(objPost.getAuthor());
             if (responseEntity.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
@@ -116,9 +139,10 @@ public class ThreadService {
                         "SELECT COUNT(*) FROM post WHERE parent=0 AND thread=?",
                         new Object[]{objPost.getThread()}, Integer.class
                 );
-                final String path = ValueConverter.toHex(count);
+                final String path = ValueConverter.toHex(count + rootsCount);
                 objPost.setPath(path);
 
+                rootsCount++;
                 /*insertPostWithTimestamp(objPost, holder, now);
 
                 objPost.setId((int) holder.getKeys().get("id"));*/
@@ -158,19 +182,11 @@ public class ThreadService {
             });
         }
 
-        final int maxId = getMaxId();
-
-        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
-
-
-
-        System.out.println("MAX="+maxId+" ");
-        List<Integer> idsList = getPostIdsAfterId(maxId);
+        List<Integer> idsList = insertAndReturnIds(postList);
 
         IntStream.range(0, arrObjPost.size()).boxed()
                 .forEach(i -> {
-                    System.out.println("INDEX="+idsList.get(i)+" ");
+                    //System.out.println("INDEX="+idsList.get(i)+" ");
                     arrObjPost.get(i).setId(idsList.get(i));
                     result.put(arrObjPost.get(i).getJson());
                 });
@@ -182,7 +198,16 @@ public class ThreadService {
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
     }
 
-    public void insertPostWithTimestamp(ObjPost objPost, KeyHolder holder, Timestamp time) {
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public List<Integer> insertAndReturnIds(List<Object[]> postList){
+        final int maxId = getMaxId();
+        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
+                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
+        return getPostIdsAfterId(maxId);
+
+    }
+
+    /*public void insertPostWithTimestamp(ObjPost objPost, KeyHolder holder, Timestamp time) {
         jdbcTemplate.update(connection -> {
             final PreparedStatement ps = connection.prepareStatement(
                     "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
@@ -197,7 +222,7 @@ public class ThreadService {
             ps.setTimestamp(8, time);
             return ps;
         }, holder);
-    }
+    }*/
 
 //    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
@@ -332,6 +357,7 @@ public class ThreadService {
 
                     postQuery.append(" LIMIT ").append(limit.toString());
                     postQuery.append(" OFFSET ").append(marker.toString());
+                    System.out.println("query=" + postQuery);
                     break;
                 }
                 case "parent_tree": {
@@ -377,6 +403,7 @@ public class ThreadService {
                     if (desc != null && !desc) {
                         postQuery.append(", path ASC");
                     }
+                    System.out.println("query=" + postQuery);
                     break;
                 }
             }

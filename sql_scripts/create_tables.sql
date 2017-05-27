@@ -62,9 +62,10 @@ CREATE TABLE vote (
 -- CREATE INDEX index_post__thread ON post (thread ASC);
 --
 -- CREATE INDEX index_thread__slug ON thread (slug);
---  CREATE INDEX index_vote__id_nickname ON vote (id, nickname);
+-- CREATE INDEX index_vote__id_nickname ON vote (id, LOWER(nickname));
 --
--- CREATE INDEX index_user__nickname ON users (nickname);
+-- CREATE INDEX index_user__nickname ON users (LOWER(nickname));
+--  CREATE INDEX index_user__email ON users (LOWER(email));
 --
 -- CREATE INDEX index_forum__slug ON forum (slug);
 
@@ -74,7 +75,7 @@ CREATE TABLE vote (
 --   $BODY$
 --   BEGIN
 --     IF substring(new.path,1,1)='*' THEN
---       UPDATE post SET path=concat(substring(new.path, 2, char_length(new.path) - 1), '.', lpad(to_hex(new.id)), 6, '0') WHERE id=new.id;
+--       UPDATE post SET path=concat(substring(new.path, 2, char_length(new.path) - 1), '.', lpad(to_hex(new.id), 6, '0')) WHERE id=new.id;
 --     END IF;
 --     RETURN new;
 --   END;
