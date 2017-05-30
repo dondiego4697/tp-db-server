@@ -8,8 +8,7 @@ import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sample.objects.*;
@@ -22,23 +21,24 @@ import sample.support.TransformDate;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
 /**
  * Created by Denis on 20.03.2017.
  */
+
+@Repository
 public class ThreadService {
 
-    public static final int NO_PARENT = 0;
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public ThreadService(JdbcTemplate jdbcTemplate) {
+    /*public ThreadService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-    }
+    }*/
 
     public Integer getMaxId() {
         final Integer id = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
@@ -78,7 +78,7 @@ public class ThreadService {
     }*/
 
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional(isolation = Isolation.REPEATABLE_READ, propagation=REQUIRES_NEW)
     public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, String slug_or_id) {
         final ObjThread objThread;
 
@@ -129,7 +129,7 @@ public class ThreadService {
                                 "SELECT * FROM post WHERE id=? AND thread=?",
                                 new Object[]{objPost.getParent(), threadID}, new PostMapper());
                         if (posts.isEmpty()) {
-                            System.out.println("CONFLICT!!!!!!!!!!!!!!!!!!!!");
+                            System.out.println("CONFLICT!!!!!!!!!!!!!!!!!!!! " + objPost.getParent() + " " + threadID);
                             return new ResponseEntity<>("", HttpStatus.CONFLICT);
                         }
                     } catch (Exception e) {
@@ -195,12 +195,18 @@ public class ThreadService {
         }
 
         //List<Integer> idsList = insertAndReturnIds(postList);
-        final int maxId = getMaxId();
+        //final int maxId = getMaxId();
+
+        Integer maxId = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
+        maxId = maxId == null ? 0 : maxId;
+
         jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
                 "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
-        List<Integer> idsList = getPostIdsAfterId(maxId);
+        List<Integer> idsList = jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{maxId}, Integer.class);
 
-        getThreadsAfterId(maxId, threadID);
+        System.out.println("SIZE="+idsList.size()+", "+arrObjPost.size());
+
+        //getThreadsAfterId(maxId, threadID);
 
         IntStream.range(0, arrObjPost.size()).boxed()
                 .forEach(i -> {
@@ -215,7 +221,7 @@ public class ThreadService {
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
     }
 
-    public void getThreadsAfterId(int postId, int threadId){
+    /*public void getThreadsAfterId(int postId, int threadId){
         List<Integer> threadList = jdbcTemplate.queryForList("SELECT thread FROM post WHERE id > ? ORDER BY id", new Object[]{postId}, Integer.class);
         threadList = threadList.stream().distinct().collect(Collectors.toList());
         StringBuilder list = new StringBuilder("THREAD=" + threadId + "; arr=");
@@ -223,7 +229,7 @@ public class ThreadService {
             list.append(id).append(", ");
         }
         System.out.println(list);
-    }
+    }*/
 
 
     /*@Transactional(isolation = Isolation.REPEATABLE_READ)

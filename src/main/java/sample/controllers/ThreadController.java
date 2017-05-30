@@ -1,5 +1,6 @@
 package sample.controllers;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +20,13 @@ import java.util.List;
 @RequestMapping("api/thread/")
 public class ThreadController {
 
-    private final ThreadService threadService;
+    @Autowired
+    private
+    ThreadService threadService;
 
-    public ThreadController(JdbcTemplate jdbcTemplate) {
+    /*public ThreadController(JdbcTemplate jdbcTemplate) {
         this.threadService = new ThreadService(jdbcTemplate);
-    }
+    }*/
 
     //Создание новых постов
     @RequestMapping(path = "/{slug_or_id}/create", method = RequestMethod.POST)

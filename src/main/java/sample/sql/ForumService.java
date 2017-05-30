@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sample.objects.ObjForum;
@@ -26,10 +27,14 @@ import java.util.List;
 /**
  * Created by Denis on 15.03.2017.
  */
+@Service
 public class ForumService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    ThreadService threadService;
 
     public ForumService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -79,12 +84,15 @@ public class ForumService {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
         try {
-            final ObjThread objThread1 = new ThreadService(jdbcTemplate).getObjThreadBySlug(objThread.getSlug());
+            //final ObjThread objThread1 = new ThreadService(jdbcTemplate).getObjThreadBySlug(objThread.getSlug());
+            final ObjThread objThread1 = threadService.getObjThreadBySlug(objThread.getSlug());
             if (objThread1 != null) {
                 objThread1.setCreated(TransformDate.transformWithAppend00(objThread1.getCreated()));
                 return new ResponseEntity<>(objThread1.getJson().toString(), HttpStatus.CONFLICT);
             }
+            System.out.println("CREATED!!="+ objThread.getSlug());
         } catch (Exception e) {
+            System.out.println(e);
         }
 
         final ObjForum objForum;
