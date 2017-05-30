@@ -63,6 +63,14 @@ CREATE TABLE vote (
   voice INTEGER
 );
 
+CREATE TABLE link_user_forum (
+  id SERIAL PRIMARY KEY ,
+  user_nickname CITEXT COLLATE "ucs_basic",
+  forum_slug CITEXT COLLATE "ucs_basic",
+  UNIQUE (user_nickname, forum_slug)
+);
+CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
+
 CREATE INDEX index_post__parent_thread ON post (parent ASC, thread ASC);
 CREATE INDEX index_post__thread ON post (thread ASC);
 
@@ -74,9 +82,9 @@ CREATE INDEX index_user__email ON users (LOWER(email));
 
 CREATE INDEX index_forum__slug ON forum (slug);
 
-CREATE TRIGGER post_update_path AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postUpdatePath();
+CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
 
-CREATE OR REPLACE FUNCTION postUpdatePath() RETURNS TRIGGER AS
+CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
 $BODY$
 BEGIN
   IF substring(new.path,1,1)='*' THEN

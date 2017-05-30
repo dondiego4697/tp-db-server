@@ -1,6 +1,8 @@
 package sample.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +30,13 @@ public class UserController {
     @RequestMapping(path = "/{nickname}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createUser(@RequestBody ObjUser body, @PathVariable(name = "nickname") String nickname) {
         System.out.println("Create USER with nickname " + nickname);
-        return (userService.create(body, nickname));
+
+        try{
+            return userService.create(body, nickname);
+        } catch (DataAccessException e){
+            return new ResponseEntity<>(userService.getUsers(body), HttpStatus.CONFLICT);
+        }
+
     }
 
     //Получение информации о пользователе

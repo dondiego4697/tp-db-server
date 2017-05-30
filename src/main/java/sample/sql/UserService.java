@@ -28,28 +28,27 @@ public class UserService {
         this.jdbcTemplate = jdbcTemplate;
     }*/
 
-    //@Transactional(isolation = Isolation.REPEATABLE_READ)
-    public ResponseEntity<String> create(ObjUser objUser, String nickname) {
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public ResponseEntity<String> create(ObjUser objUser, String nickname) throws DataAccessException {
         objUser.setNickname(nickname);
-        try {
-            jdbcTemplate.update("INSERT INTO users (nickname,fullname,about,email) VALUES (?,?,?,?)",
-                    objUser.getNickname(), objUser.getFullname(),
-                    objUser.getAbout(), objUser.getEmail());
+        jdbcTemplate.update("INSERT INTO users (nickname,fullname,about,email) VALUES (?,?,?,?)",
+                objUser.getNickname(), objUser.getFullname(),
+                objUser.getAbout(), objUser.getEmail());
 
-            return new ResponseEntity<>(objUser.getJson().toString(), HttpStatus.CREATED);
-        } catch (DataAccessException e) {
+        return new ResponseEntity<>(objUser.getJson().toString(), HttpStatus.CREATED);
+    }
+
+    public String getUsers(ObjUser objUser){
+        final List<ObjUser> users = jdbcTemplate.query(
+                "SELECT * FROM users WHERE LOWER(email)=LOWER(?) OR LOWER(nickname)=LOWER(?)",
+                new Object[]{objUser.getEmail(),
+                        objUser.getNickname()}, new UserMapper());
+        final JSONArray result = new JSONArray();
+
+        for (ObjUser user : users) {
+            result.put(user.getJson());
         }
-
-         final List<ObjUser> users = jdbcTemplate.query(
-                    "SELECT * FROM users WHERE LOWER(email)=LOWER(?) OR LOWER(nickname)=LOWER(?)",
-                    new Object[]{objUser.getEmail(),
-                            objUser.getNickname()}, new UserMapper());
-            final JSONArray result = new JSONArray();
-
-            for (ObjUser user : users) {
-                result.put(user.getJson());
-            }
-        return new ResponseEntity<>(result.toString(), HttpStatus.CONFLICT);
+        return result.toString();
     }
 
     public ObjUser getObjUser(String nickname){

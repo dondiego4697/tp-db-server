@@ -19,10 +19,6 @@ public class ForumController {
     @Autowired
     ForumService forumService;
 
-    /*public ForumController(JdbcTemplate jdbcTemplate) {
-        this.forumService = new ForumService(jdbcTemplate);
-    }*/
-
     //Создание форума
     @RequestMapping(path = "/create", method = RequestMethod.POST)
     public ResponseEntity<String> createForum(@RequestBody ObjForum body) {
@@ -39,6 +35,10 @@ public class ForumController {
         ResponseEntity<String> responseEntity = forumService.createThread(body, slug);
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
             forumService.incrementThreads(slug);
+            try {
+                forumService.addInLinkUserForum(slug, body.getAuthor());
+            } catch (Exception e){
+            }
         }
         return responseEntity;
     }
