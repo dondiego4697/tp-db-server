@@ -49,7 +49,7 @@ CREATE TABLE thread (
   author TEXT
 );
 
-CREATE INDEX index_thread__slug ON thread (slug);
+CREATE INDEX index_thread__slug ON thread (LOWER(slug));
 
 CREATE TABLE post (
   id INTEGER PRIMARY KEY DEFAULT NEXTVAL('post_id_seq'),
