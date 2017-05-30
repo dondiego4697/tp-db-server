@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sample.objects.*;
@@ -30,78 +31,17 @@ import static org.springframework.transaction.annotation.Propagation.REQUIRES_NE
  * Created by Denis on 20.03.2017.
  */
 
-@Repository
+@Service
 public class ThreadService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    /*public ThreadService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }*/
-
-    public Integer getMaxId() {
-        final Integer id = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
-        return id == null ? 0 : id;
-    }
-
-    public List<Integer> getPostIdsAfterId(Integer id) {
-        return jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{id}, Integer.class);
-    }
-
-    /*public boolean checkPosts(List<Integer> idsList, int threadId) {
-        final ArrayList<Object> params = new ArrayList<>();
-        params.add(threadId);
-        params.addAll(idsList);
-        final String query = "SELECT COUNT(*) FROM post WHERE thread = ? AND id in ( " +
-                String.join(", ", Collections.nCopies(idsList.size(), "?")) + " )";
-        final Integer count = jdbcTemplate.queryForObject(query,
-                params.toArray(), Integer.class);
-        System.out.println("COUNT="+count + " " + idsList.size());
-        return count.equals(idsList.size());
-    }
-
-    private boolean checkPostParents(ArrayList<ObjPost> postsArr, int threadId) {
-        final List<Integer> parentIdsList = postsArr.stream()
-                .map(ObjPost::getParent)
-                .filter(parentId -> parentId != null && !parentId.equals(0))
-                .distinct()
-                .collect(Collectors.toList());
-        boolean check1 = parentIdsList.isEmpty();
-        boolean check2 = true;
-        if(!check1) {
-            check2 = checkPosts(parentIdsList, threadId);
-        }
-        System.out.println("RESULT="+check1 + " " + check2);
-
-        return check1 || check2 *//*parentIdsList.isEmpty() || checkPosts(parentIdsList, threadId)*//*;
-    }*/
-
+    @Autowired
+    UserService userService;
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, propagation=REQUIRES_NEW)
-    public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, String slug_or_id) {
-        final ObjThread objThread;
-
-        final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
-        if (!objSlugOrId.getFlag()) {
-            try {
-                objThread = this.getObjThreadById(objSlugOrId.getId());
-                if (objThread == null) {
-                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-                }
-            } catch (Exception e) {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-            }
-        } else {
-            try {
-                objThread = this.getObjThreadBySlug(objSlugOrId.getSlug());
-                if (objThread == null) {
-                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-                }
-            } catch (Exception e) {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-            }
-        }
+    public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, ObjThread objThread) {
 
         final Integer threadID = objThread.getId();
 
@@ -116,35 +56,23 @@ public class ThreadService {
             objPost.setForum(objThread.getForum());
             objPost.setThread(threadID);
 
-           /* Boolean check = checkPostParents(arrObjPost, objThread.getId());
-            System.out.println("FINAL CHECK = " + check);*/
-
-           /* if (!checkPostParents(arrObjPost, objThread.getId())) {
-                return new ResponseEntity<>("", HttpStatus.CONFLICT);
-            }*/
-            System.out.println("PARENT="+objPost.getParent() + ", THREAD="+threadID);
             if (objPost.getParent() != 0) {
                     try {
                         final List<ObjPost> posts = jdbcTemplate.query(
                                 "SELECT * FROM post WHERE id=? AND thread=?",
                                 new Object[]{objPost.getParent(), threadID}, new PostMapper());
                         if (posts.isEmpty()) {
-                            System.out.println("CONFLICT!!!!!!!!!!!!!!!!!!!! " + objPost.getParent() + " " + threadID);
                             return new ResponseEntity<>("", HttpStatus.CONFLICT);
                         }
                     } catch (Exception e) {
-                        System.out.println("ERROR post parent = " + e);
                         return new ResponseEntity<>("", HttpStatus.CONFLICT);
                     }
             }
 
-            final ResponseEntity responseEntity = new UserService(jdbcTemplate).get(objPost.getAuthor());
+            final ResponseEntity responseEntity = userService.get(objPost.getAuthor());
             if (responseEntity.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
-
-
-            //final KeyHolder holder = new GeneratedKeyHolder();
 
             if (objPost.getParent() == 0) {
                 final Integer count = jdbcTemplate.queryForObject(
@@ -155,10 +83,6 @@ public class ThreadService {
                 objPost.setPath(path);
 
                 rootsCount++;
-                /*insertPostWithTimestamp(objPost, holder, now);
-
-                objPost.setId((int) holder.getKeys().get("id"));*/
-
             } else {
                 final String prevPath = jdbcTemplate.queryForObject(
                         "SELECT path FROM post WHERE id = ?;",
@@ -166,21 +90,9 @@ public class ThreadService {
                 );
 
                 objPost.setPath('*'+prevPath);
-                /*insertPostWithTimestamp(objPost, holder, now);
-
-                final int id = (int) holder.getKeys().get("id");
-                objPost.setId(id);*/
-
-                /*final String path = prevPath + '.' + ValueConverter.toHex(id);
-                objPost.setPath(path);
-                jdbcTemplate.update(
-                        "UPDATE post SET path=? WHERE id=?",
-                        new Object[]{path, id});*/
             }
 
             objPost.setCreated(now);
-
-            //result.put(objPost.getJson());
 
             postList.add(new Object[]{
                     objPost.getParent(),
@@ -194,9 +106,6 @@ public class ThreadService {
             });
         }
 
-        //List<Integer> idsList = insertAndReturnIds(postList);
-        //final int maxId = getMaxId();
-
         Integer maxId = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
         maxId = maxId == null ? 0 : maxId;
 
@@ -204,64 +113,25 @@ public class ThreadService {
                 "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
         List<Integer> idsList = jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{maxId}, Integer.class);
 
-        System.out.println("SIZE="+idsList.size()+", "+arrObjPost.size());
-
-        //getThreadsAfterId(maxId, threadID);
-
         IntStream.range(0, arrObjPost.size()).boxed()
                 .forEach(i -> {
                     arrObjPost.get(i).setId(idsList.get(i));
                     result.put(arrObjPost.get(i).getJson());
                 });
 
-        jdbcTemplate.update(
-                "UPDATE forum SET posts=posts+" + arrObjPost.size() + " WHERE LOWER(slug)=LOWER(?)",
-                objThread.getForum());
-
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
     }
 
-    /*public void getThreadsAfterId(int postId, int threadId){
-        List<Integer> threadList = jdbcTemplate.queryForList("SELECT thread FROM post WHERE id > ? ORDER BY id", new Object[]{postId}, Integer.class);
-        threadList = threadList.stream().distinct().collect(Collectors.toList());
-        StringBuilder list = new StringBuilder("THREAD=" + threadId + "; arr=");
-        for(Integer id : threadList){
-            list.append(id).append(", ");
-        }
-        System.out.println(list);
-    }*/
-
-
-    /*@Transactional(isolation = Isolation.REPEATABLE_READ)
-    public List<Integer> insertAndReturnIds(List<Object[]> postList){
-        final int maxId = getMaxId();
-        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
-        return getPostIdsAfterId(maxId);
-
-    }*/
-
-    /*public void insertPostWithTimestamp(ObjPost objPost, KeyHolder holder, Timestamp time) {
-        jdbcTemplate.update(connection -> {
-            final PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                            "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", new String[]{"id", "created"});
-            ps.setInt(1, objPost.getParent());
-            ps.setString(2, objPost.getAuthor());
-            ps.setString(3, objPost.getMessage());
-            ps.setBoolean(4, objPost.getEdited());
-            ps.setString(5, objPost.getForum());
-            ps.setInt(6, objPost.getThread());
-            ps.setString(7, objPost.getPath());
-            ps.setTimestamp(8, time);
-            return ps;
-        }, holder);
-    }*/
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void incrementPosts(String slug, Integer size) {
+        final String sql = "UPDATE forum SET posts = posts+" + size +" WHERE LOWER(slug)=LOWER(?)";
+        jdbcTemplate.update(sql, slug);
+    }
 
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
         final ObjThread result;
 
-        if (new UserService(jdbcTemplate).getObjUser(objVote.getNickname()) == null) {
+        if (userService.getObjUser(objVote.getNickname()) == null) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 

@@ -1,5 +1,6 @@
 package sample.controllers;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -16,11 +17,12 @@ import sample.sql.ThreadService;
 @RequestMapping("api/post/")
 public class PostController {
 
-    private final PostService postService;
+    @Autowired
+    PostService postService;
 
-    public PostController(JdbcTemplate jdbcTemplate) {
+    /*public PostController(JdbcTemplate jdbcTemplate) {
         this.postService = new PostService(jdbcTemplate);
-    }
+    }*/
 
     //Получение информации о ветке
     @RequestMapping(path = "/{id}/details", method = RequestMethod.GET)

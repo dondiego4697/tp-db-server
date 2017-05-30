@@ -25,6 +25,9 @@ public class PostService {
     @Autowired
     ThreadService threadService;
 
+    @Autowired
+    UserService userService;
+
     public PostService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -47,7 +50,7 @@ public class PostService {
         for (String option : arrRelated) {
             switch (option) {
                 case "user": {
-                    final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objPost.getAuthor());
+                    final ObjUser objUser = userService.getObjUser(objPost.getAuthor());
                     if (objUser != null) {
                         result.put("author", objUser.getJson());
                     }

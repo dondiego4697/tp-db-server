@@ -7,6 +7,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sample.objects.ObjUser;
@@ -17,16 +18,17 @@ import java.util.List;
 /**
  * Created by Denis on 15.03.2017.
  */
+@Service
 public class UserService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public UserService(JdbcTemplate jdbcTemplate) {
+    /*public UserService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-    }
+    }*/
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    //@Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> create(ObjUser objUser, String nickname) {
         objUser.setNickname(nickname);
         try {
@@ -36,8 +38,9 @@ public class UserService {
 
             return new ResponseEntity<>(objUser.getJson().toString(), HttpStatus.CREATED);
         } catch (DataAccessException e) {
-            System.out.println(e);
-            final List<ObjUser> users = jdbcTemplate.query(
+        }
+
+         final List<ObjUser> users = jdbcTemplate.query(
                     "SELECT * FROM users WHERE LOWER(email)=LOWER(?) OR LOWER(nickname)=LOWER(?)",
                     new Object[]{objUser.getEmail(),
                             objUser.getNickname()}, new UserMapper());
@@ -46,8 +49,7 @@ public class UserService {
             for (ObjUser user : users) {
                 result.put(user.getJson());
             }
-            return new ResponseEntity<>(result.toString(), HttpStatus.CONFLICT);
-        }
+        return new ResponseEntity<>(result.toString(), HttpStatus.CONFLICT);
     }
 
     public ObjUser getObjUser(String nickname){

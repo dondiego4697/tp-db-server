@@ -15,11 +15,14 @@ import sample.sql.UserService;
 @RequestMapping("/api/user/")
 public class UserController {
 
-    private final UserService userService;
+    @Autowired
+    UserService userService;
 
+/*
     UserController(JdbcTemplate jdbcTemplate) {
         this.userService = new UserService(jdbcTemplate);
     }
+*/
 
     //Создание нового пользователя
     @RequestMapping(path = "/{nickname}/create", method = RequestMethod.POST)

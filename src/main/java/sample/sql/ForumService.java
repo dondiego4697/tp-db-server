@@ -36,13 +36,16 @@ public class ForumService {
     @Autowired
     ThreadService threadService;
 
+    @Autowired
+    UserService userService;
+
     public ForumService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
     public ResponseEntity<String> createForum(ObjForum objForum) {
         try {
-            final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objForum.getUser());
+            final ObjUser objUser = userService.getObjUser(objForum.getUser());
             objForum.setUser(objUser.getNickname());
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -90,14 +93,14 @@ public class ForumService {
                 objThread1.setCreated(TransformDate.transformWithAppend00(objThread1.getCreated()));
                 return new ResponseEntity<>(objThread1.getJson().toString(), HttpStatus.CONFLICT);
             }
-            System.out.println("CREATED!!="+ objThread.getSlug());
+            //System.out.println("CREATED!!="+ objThread.getSlug());
         } catch (Exception e) {
             System.out.println(e);
         }
 
         final ObjForum objForum;
         try {
-            final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objThread.getAuthor());
+            final ObjUser objUser = userService.getObjUser(objThread.getAuthor());
             objForum = this.getObjForum(slug);
             if(objUser == null || objForum == null){
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -123,11 +126,18 @@ public class ForumService {
         }, holder);
         objThread.setId((int) holder.getKey());
 
-        jdbcTemplate.update(
+
+        /*jdbcTemplate.update(
                 "UPDATE forum SET threads=threads+1 WHERE LOWER(slug)=LOWER(?)",
                 slug);
-
+*/
         return new ResponseEntity<>(objThread.getJson().toString(), HttpStatus.CREATED);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void incrementThreads(String slug) {
+        final String sql = "UPDATE forum SET threads = threads + 1 WHERE LOWER(slug)=LOWER(?)";
+        jdbcTemplate.update(sql, slug);
     }
 
 

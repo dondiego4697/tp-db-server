@@ -4,19 +4,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import sample.objects.ObjService;
 
 /**
  * Created by Denis on 22.03.2017.
  */
+@Service
 public class DBService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public DBService(JdbcTemplate jdbcTemplate) {
+    /*public DBService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-    }
+    }*/
 
     public ResponseEntity<String> getInfo() {
         final Integer forum = jdbcTemplate.queryForObject(
