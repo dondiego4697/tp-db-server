@@ -1,5 +1,6 @@
 package sample.sql;
 
+import com.google.common.collect.Lists;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ import sample.support.TransformDate;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
@@ -40,7 +42,7 @@ public class ThreadService {
     @Autowired
     UserService userService;
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ, propagation=REQUIRES_NEW)
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, ObjThread objThread) {
 
         final Integer threadID = objThread.getId();
@@ -120,6 +122,28 @@ public class ThreadService {
                 });
 
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
+    }
+
+    public void addInLinkUserForum(String forumSlug, List<String> userNames, int chunkSize) {
+        final List<Object[]> totalList = userNames.stream()
+                .distinct()
+                .map(name -> new Object[]{forumSlug, name})
+                .collect(Collectors.toList());
+        final List<List<Object[]>> chunkLists = Lists.partition(totalList, chunkSize);
+        chunkLists.forEach(this::addUser);
+    }
+
+    private void addUser(List<Object[]> list) {
+        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?) ON CONFLICT DO NOTHING";
+        boolean finished = false;
+        while (!finished) {
+            try {
+                jdbcTemplate.batchUpdate(sql, list);
+                finished = true;
+            } catch (DeadlockLoserDataAccessException e) {
+                System.out.println("DEADLOCK!!!");
+            }
+        }
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)

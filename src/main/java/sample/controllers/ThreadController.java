@@ -13,6 +13,7 @@ import sample.support.ObjSlugOrId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by Denis on 17.02.2017.
@@ -60,6 +61,11 @@ public class ThreadController {
         ResponseEntity<String> responseEntity = threadService.createPosts(body, objThread);
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
             threadService.incrementPosts(objThread.getForum(), body.size());
+            threadService.addInLinkUserForum(objThread.getForum(),
+                    body.stream()
+                            .map(ObjPost::getAuthor)
+                            .distinct()
+                            .collect(Collectors.toList()), 40);
         }
         return responseEntity;
     }
