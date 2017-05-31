@@ -19,10 +19,6 @@ public class DBController {
     @Autowired
     DBService dbService;
 
-    /*public DBController(JdbcTemplate jdbcTemplate) {
-        this.dbService = new DBService(jdbcTemplate);
-    }*/
-
     //Очистка всех данных в базе
     @RequestMapping(path = "/clear", method = RequestMethod.POST)
     public ResponseEntity<String> clear() {
