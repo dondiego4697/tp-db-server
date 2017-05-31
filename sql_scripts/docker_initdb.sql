@@ -18,7 +18,7 @@ CREATE SEQUENCE users_id_seq;
 
 CREATE TABLE users (
   id INTEGER PRIMARY KEY DEFAULT NEXTVAL('users_id_seq'),
-  nickname CITEXT NOT NULL UNIQUE,
+  nickname CITEXT COLLATE ucs_basic NOT NULL UNIQUE,
   fullname VARCHAR(40) NOT NULL,
   about TEXT,
   email CITEXT NOT NULL UNIQUE

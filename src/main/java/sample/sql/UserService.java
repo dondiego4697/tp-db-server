@@ -7,6 +7,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sample.objects.ObjUser;
@@ -17,38 +18,37 @@ import java.util.List;
 /**
  * Created by Denis on 15.03.2017.
  */
+@Service
 public class UserService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public UserService(JdbcTemplate jdbcTemplate) {
+    /*public UserService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-    }
+    }*/
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public ResponseEntity<String> create(ObjUser objUser, String nickname) {
-        System.out.println("Create USER with nickname " + nickname);
+    public ResponseEntity<String> create(ObjUser objUser, String nickname) throws DataAccessException {
         objUser.setNickname(nickname);
-        try {
-            jdbcTemplate.update("INSERT INTO users (nickname,fullname,about,email) VALUES (?,?,?,?)",
-                    objUser.getNickname(), objUser.getFullname(),
-                    objUser.getAbout(), objUser.getEmail());
+        jdbcTemplate.update("INSERT INTO users (nickname,fullname,about,email) VALUES (?,?,?,?)",
+                objUser.getNickname(), objUser.getFullname(),
+                objUser.getAbout(), objUser.getEmail());
 
-            return new ResponseEntity<>(objUser.getJson().toString(), HttpStatus.CREATED);
-        } catch (DataAccessException e) {
-            System.out.println(e);
-            final List<ObjUser> users = jdbcTemplate.query(
-                    "SELECT * FROM users WHERE LOWER(email)=LOWER(?) OR LOWER(nickname)=LOWER(?)",
-                    new Object[]{objUser.getEmail(),
-                            objUser.getNickname()}, new UserMapper());
-            final JSONArray result = new JSONArray();
+        return new ResponseEntity<>(objUser.getJson().toString(), HttpStatus.CREATED);
+    }
 
-            for (ObjUser user : users) {
-                result.put(user.getJson());
-            }
-            return new ResponseEntity<>(result.toString(), HttpStatus.CONFLICT);
+    public String getUsers(ObjUser objUser){
+        final List<ObjUser> users = jdbcTemplate.query(
+                "SELECT * FROM users WHERE LOWER(email)=LOWER(?) OR LOWER(nickname)=LOWER(?)",
+                new Object[]{objUser.getEmail(),
+                        objUser.getNickname()}, new UserMapper());
+        final JSONArray result = new JSONArray();
+
+        for (ObjUser user : users) {
+            result.put(user.getJson());
         }
+        return result.toString();
     }
 
     public ObjUser getObjUser(String nickname){

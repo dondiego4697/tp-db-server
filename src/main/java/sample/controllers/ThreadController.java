@@ -1,5 +1,7 @@
 package sample.controllers;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -7,9 +9,11 @@ import sample.objects.ObjPost;
 import sample.objects.ObjThread;
 import sample.objects.ObjVote;
 import sample.sql.ThreadService;
+import sample.support.ObjSlugOrId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by Denis on 17.02.2017.
@@ -19,17 +23,51 @@ import java.util.List;
 @RequestMapping("api/thread/")
 public class ThreadController {
 
-    private final ThreadService threadService;
+    @Autowired
+    ThreadService threadService;
 
-    public ThreadController(JdbcTemplate jdbcTemplate) {
+    /*public ThreadController(JdbcTemplate jdbcTemplate) {
         this.threadService = new ThreadService(jdbcTemplate);
-    }
+    }*/
 
     //Создание новых постов
     @RequestMapping(path = "/{slug_or_id}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createPost(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ArrayList<ObjPost> body) {
-        return (threadService.createPosts(body, slug_or_id));
+        System.out.println("Create POST with slug/id " + slug_or_id);
+
+        final ObjThread objThread;
+
+        final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
+        if (!objSlugOrId.getFlag()) {
+            try {
+                objThread = threadService.getObjThreadById(objSlugOrId.getId());
+                if (objThread == null) {
+                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                }
+            } catch (Exception e) {
+                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+            }
+        } else {
+            try {
+                objThread = threadService.getObjThreadBySlug(objSlugOrId.getSlug());
+                if (objThread == null) {
+                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+                }
+            } catch (Exception e) {
+                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+            }
+        }
+        ResponseEntity<String> responseEntity = threadService.createPosts(body, objThread);
+        if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
+            threadService.incrementPosts(objThread.getForum(), body.size());
+            threadService.addInLinkUserForum(objThread.getForum(),
+                    body.stream()
+                            .map(ObjPost::getAuthor)
+                            .distinct()
+                            .collect(Collectors.toList()), 40);
+        }
+        return responseEntity;
     }
 
     //Получение информации о ветке обсуждения
@@ -59,6 +97,7 @@ public class ThreadController {
     @RequestMapping(path = "/{slug_or_id}/vote", method = RequestMethod.POST)
     public ResponseEntity<String> voteThread(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ObjVote body) {
+        System.out.println("Create VOTE with slug/id " + slug_or_id);
         return (threadService.vote(body, slug_or_id));
     }
 }

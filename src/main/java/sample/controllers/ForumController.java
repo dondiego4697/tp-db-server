@@ -1,5 +1,7 @@
 package sample.controllers;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -14,15 +16,13 @@ import sample.sql.ForumService;
 @RequestMapping("/api/forum/")
 public class ForumController {
 
-    private final ForumService forumService;
-
-    public ForumController(JdbcTemplate jdbcTemplate) {
-        this.forumService = new ForumService(jdbcTemplate);
-    }
+    @Autowired
+    ForumService forumService;
 
     //Создание форума
     @RequestMapping(path = "/create", method = RequestMethod.POST)
     public ResponseEntity<String> createForum(@RequestBody ObjForum body) {
+        System.out.println("Create FORUM with slug " + body.getSlug());
         return (forumService.createForum(body));
     }
 
@@ -30,7 +30,17 @@ public class ForumController {
     @RequestMapping(path = "/{slug}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createThread(@RequestBody ObjThread body,
                                                @PathVariable(name = "slug") String slug) {
-        return (forumService.createThread(body, slug));
+        System.out.println("Create THREAD with slug " + slug);
+
+        ResponseEntity<String> responseEntity = forumService.createThread(body, slug);
+        if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
+            forumService.incrementThreads(slug);
+            try {
+                forumService.addInLinkUserForum(slug, body.getAuthor());
+            } catch (Exception e){
+            }
+        }
+        return responseEntity;
     }
 
     //Получение информации о форуме

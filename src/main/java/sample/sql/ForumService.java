@@ -8,6 +8,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import sample.objects.ObjForum;
 import sample.objects.ObjThread;
 import sample.objects.ObjUser;
@@ -19,15 +22,23 @@ import sample.support.TransformDate;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Created by Denis on 15.03.2017.
  */
+@Service
 public class ForumService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    ThreadService threadService;
+
+    @Autowired
+    UserService userService;
 
     public ForumService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -35,7 +46,7 @@ public class ForumService {
 
     public ResponseEntity<String> createForum(ObjForum objForum) {
         try {
-            final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objForum.getUser());
+            final ObjUser objUser = userService.getObjUser(objForum.getUser());
             objForum.setUser(objUser.getNickname());
         } catch (Exception e) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -74,19 +85,21 @@ public class ForumService {
         }
     }
 
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
         try {
-            final ObjThread objThread1 = new ThreadService(jdbcTemplate).getObjThreadBySlug(objThread.getSlug());
+            final ObjThread objThread1 = threadService.getObjThreadBySlug(objThread.getSlug());
             if (objThread1 != null) {
                 objThread1.setCreated(TransformDate.transformWithAppend00(objThread1.getCreated()));
                 return new ResponseEntity<>(objThread1.getJson().toString(), HttpStatus.CONFLICT);
             }
         } catch (Exception e) {
+            System.out.println(e);
         }
 
         final ObjForum objForum;
         try {
-            final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objThread.getAuthor());
+            final ObjUser objUser = userService.getObjUser(objThread.getAuthor());
             objForum = this.getObjForum(slug);
             if(objUser == null || objForum == null){
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -112,11 +125,19 @@ public class ForumService {
         }, holder);
         objThread.setId((int) holder.getKey());
 
-        jdbcTemplate.update(
-                "UPDATE forum SET threads=threads+1 WHERE LOWER(slug)=LOWER(?)",
-                slug);
-
         return new ResponseEntity<>(objThread.getJson().toString(), HttpStatus.CREATED);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void incrementThreads(String slug) {
+        final String sql = "UPDATE forum SET threads = threads + 1 WHERE LOWER(slug)=LOWER(?)";
+        jdbcTemplate.update(sql, slug);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void addInLinkUserForum(String slug, String nickname) throws Exception {
+        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?)";
+        jdbcTemplate.update(sql, nickname, slug);
     }
 
 
@@ -169,31 +190,34 @@ public class ForumService {
         final ResponseEntity<String> forum = getForumDetails(slug);
         if (forum.getStatusCode() == HttpStatus.NOT_FOUND) return forum;
 
-        final StringBuilder query = new StringBuilder(
-                "SELECT *, OCTET_LENGTH(LOWER(nickname)) FROM users WHERE nickname IN")
-                .append("(SELECT u.nickname FROM users as u FULL OUTER JOIN post as p ")
-                .append("ON LOWER(u.nickname)=LOWER(p.author) FULL OUTER JOIN thread as t ")
-                .append("ON LOWER(u.nickname)=LOWER(t.author) WHERE LOWER(p.forum)=LOWER(?) ")
-                .append("OR LOWER(t.forum)=LOWER(?) GROUP BY u.nickname)");
+        final ArrayList<Object> params = new ArrayList<>();
+        params.add(slug);
 
+        final StringBuilder query = new StringBuilder("SELECT DISTINCT ON (link.user_nickname) u.* FROM " +
+                "link_user_forum link JOIN users u ON u.nickname = link.user_nickname " +
+                "WHERE link.forum_slug = ?::citext ");
         if (since != null) {
-            if (desc != null && desc) {
-                query.append(" AND nickname<'").append(since).append("'");
+            if (desc!= null && desc) {
+                query.append(" AND link.user_nickname < ?::citext ");
             } else {
-                query.append(" AND nickname>'").append(since).append("'");
+                query.append(" AND link.user_nickname > ?::citext ");
             }
+            params.add(since);
         }
-        query.append("  ORDER BY nickname");
+        query.append("ORDER BY link.user_nickname");
 
-        if (desc != null && desc) query.append(" DESC");
+        if (desc!= null && desc) {
+            query.append(" DESC ");
+        }
 
         if (limit != null) {
-            query.append(" LIMIT ").append(limit);
+            query.append(" LIMIT ? ");
+            params.add(limit);
         }
+
         final List<ObjUser> arrObjUser = jdbcTemplate.query(
                 query.toString(),
-                new Object[]{slug, slug}, new UserMapper());
-
+                params.toArray(), new UserMapper());
 
         final JSONArray result = new JSONArray();
         for (ObjUser objUser : arrObjUser) {

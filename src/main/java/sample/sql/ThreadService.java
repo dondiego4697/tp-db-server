@@ -1,13 +1,16 @@
 package sample.sql;
 
+import com.google.common.collect.Lists;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sample.objects.*;
@@ -18,291 +21,207 @@ import sample.support.ObjSlugOrId;
 import sample.support.ValueConverter;
 import sample.support.TransformDate;
 
-import java.sql.PreparedStatement;
 import java.sql.Timestamp;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
 /**
  * Created by Denis on 20.03.2017.
  */
+
+@Service
 public class ThreadService {
 
-    public static final int NO_PARENT = 0;
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public ThreadService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    @Autowired
+    UserService userService;
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, String slug_or_id) {
-        final ObjThread objThread;
-        final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
-        if (!objSlugOrId.getFlag()) {
-            try {
-                objThread = this.getObjThreadById(objSlugOrId.getId());
-                if (objThread == null) {
-                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-                }
-            } catch (Exception e) {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-            }
-        } else {
-            try {
-                objThread = this.getObjThreadBySlug(objSlugOrId.getSlug());
-                if (objThread == null) {
-                    return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-                }
-            } catch (Exception e) {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
-            }
-        }
+    public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, ObjThread objThread) {
+
+        final Integer threadID = objThread.getId();
 
 
         final Timestamp now = new Timestamp(System.currentTimeMillis());
         final JSONArray result = new JSONArray();
 
+        //TODO create
+        int rootsCount = 0;
+        List<Object[]> postList = new ArrayList<>();
         for (ObjPost objPost : arrObjPost) {
             objPost.setForum(objThread.getForum());
-            objPost.setThread(objThread.getId());
+            objPost.setThread(threadID);
 
             if (objPost.getParent() != 0) {
-                try {
-                    final List<ObjPost> posts = jdbcTemplate.query(
-                            "SELECT * FROM post WHERE id=? AND thread=?",
-                            new Object[]{objPost.getParent(), objThread.getId()}, new PostMapper());
-                    if (posts.isEmpty()) {
+                    try {
+                        final List<ObjPost> posts = jdbcTemplate.query(
+                                "SELECT * FROM post WHERE id=? AND thread=?",
+                                new Object[]{objPost.getParent(), threadID}, new PostMapper());
+                        if (posts.isEmpty()) {
+                            return new ResponseEntity<>("", HttpStatus.CONFLICT);
+                        }
+                    } catch (Exception e) {
                         return new ResponseEntity<>("", HttpStatus.CONFLICT);
                     }
-                } catch (Exception e) {
-                    return new ResponseEntity<>("", HttpStatus.CONFLICT);
-                }
             }
 
-            final ResponseEntity responseEntity = new UserService(jdbcTemplate).get(objPost.getAuthor());
+            final ResponseEntity responseEntity = userService.get(objPost.getAuthor());
             if (responseEntity.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
-
-
-            final KeyHolder holder = new GeneratedKeyHolder();
 
             if (objPost.getParent() == 0) {
                 final Integer count = jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM post WHERE parent=0 AND thread=?",
                         new Object[]{objPost.getThread()}, Integer.class
                 );
-                final String path = ValueConverter.toHex(count);
+                final String path = ValueConverter.toHex(count + rootsCount);
                 objPost.setPath(path);
 
-                insertPostWithTimestamp(objPost, holder, now);
-
-                objPost.setId((int) holder.getKeys().get("id"));
-
+                rootsCount++;
             } else {
                 final String prevPath = jdbcTemplate.queryForObject(
                         "SELECT path FROM post WHERE id = ?;",
                         new Object[]{objPost.getParent()}, String.class
                 );
 
-                insertPostWithTimestamp(objPost, holder, now);
-
-                final int id = (int) holder.getKeys().get("id");
-                objPost.setId(id);
-
-                final String path = prevPath + '.' + ValueConverter.toHex(id);
-                objPost.setPath(path);
-                jdbcTemplate.update(
-                        "UPDATE post SET path=? WHERE id=?",
-                        new Object[]{path, id});
+                objPost.setPath('*'+prevPath);
             }
 
             objPost.setCreated(now);
 
-            result.put(objPost.getJson());
+            postList.add(new Object[]{
+                    objPost.getParent(),
+                    objPost.getAuthor(),
+                    objPost.getMessage(),
+                    objPost.getEdited(),
+                    objPost.getForum(),
+                    objPost.getThread(),
+                    objPost.getPath(),
+                    objPost.getCreated()
+            });
         }
 
-        jdbcTemplate.update(
-                "UPDATE forum SET posts=posts+" + arrObjPost.size() + " WHERE LOWER(slug)=LOWER(?)",
-                objThread.getForum());
+        Integer maxId = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
+        maxId = maxId == null ? 0 : maxId;
+
+        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
+                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
+        List<Integer> idsList = jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{maxId}, Integer.class);
+
+        IntStream.range(0, arrObjPost.size()).boxed()
+                .forEach(i -> {
+                    arrObjPost.get(i).setId(idsList.get(i));
+                    result.put(arrObjPost.get(i).getJson());
+                });
 
         return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
     }
 
-   /* public Timestamp stringToTimestamp(String time){
-        Timestamp timestamp = null;
-        try {
-            final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX");
-            final Date parsedDate = dateFormat.parse(time);
-            timestamp = new Timestamp(parsedDate.getTime());
-        } catch (Exception e) {
-            System.out.println(e.toString());
-        }
-        return timestamp;
-    }*/
-
-    /*public void insertPost(ObjPost objPost, KeyHolder holder) {
-        jdbcTemplate.update(connection -> {
-            final PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path) " +
-                            "VALUES (?,?,?,?,?,?,?)", new String[]{"id", "created"});
-            ps.setInt(1, objPost.getParent());
-            ps.setString(2, objPost.getAuthor());
-            ps.setString(3, objPost.getMessage());
-            ps.setBoolean(4, objPost.getEdited());
-            ps.setString(5, objPost.getForum());
-            ps.setInt(6, objPost.getThread());
-            ps.setString(7, objPost.getPath());
-            return ps;
-        }, holder);
+    public void addInLinkUserForum(String forumSlug, List<String> userNames, int chunkSize) {
+        final List<Object[]> totalList = userNames.stream()
+                .distinct()
+                .map(name -> new Object[]{forumSlug, name})
+                .collect(Collectors.toList());
+        final List<List<Object[]>> chunkLists = Lists.partition(totalList, chunkSize);
+        chunkLists.forEach(this::addUser);
     }
 
-    public void insertPostWithTime(ObjPost objPost, KeyHolder holder, String time) {
-        jdbcTemplate.update(connection -> {
-            final PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                            "VALUES (?,?,?,?,?,?,?,?::timestamptz)", new String[]{"id", "created"});
-            ps.setInt(1, objPost.getParent());
-            ps.setString(2, objPost.getAuthor());
-            ps.setString(3, objPost.getMessage());
-            ps.setBoolean(4, objPost.getEdited());
-            ps.setString(5, objPost.getForum());
-            ps.setInt(6, objPost.getThread());
-            ps.setString(7, objPost.getPath());
-            ps.setString(8, time);
-            return ps;
-        }, holder);
-    }*/
+    private void addUser(List<Object[]> list) {
+        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?) ON CONFLICT DO NOTHING";
+        boolean finished = false;
+        while (!finished) {
+            try {
+                jdbcTemplate.batchUpdate(sql, list);
+                finished = true;
+            } catch (DeadlockLoserDataAccessException e) {
+                System.out.println("DEADLOCK!!!");
+            }
+        }
+    }
 
-    public void insertPostWithTimestamp(ObjPost objPost, KeyHolder holder, Timestamp time) {
-        jdbcTemplate.update(connection -> {
-            final PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                            "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", new String[]{"id", "created"});
-            ps.setInt(1, objPost.getParent());
-            ps.setString(2, objPost.getAuthor());
-            ps.setString(3, objPost.getMessage());
-            ps.setBoolean(4, objPost.getEdited());
-            ps.setString(5, objPost.getForum());
-            ps.setInt(6, objPost.getThread());
-            ps.setString(7, objPost.getPath());
-            ps.setTimestamp(8, time);
-            return ps;
-        }, holder);
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void incrementPosts(String slug, Integer size) {
+        final String sql = "UPDATE forum SET posts = posts+" + size +" WHERE LOWER(slug)=LOWER(?)";
+        jdbcTemplate.update(sql, slug);
     }
 
     public ResponseEntity<String> vote(ObjVote objVote, String slug_or_id) {
-        final ObjSlugOrId objSlugOrId = new ObjSlugOrId(slug_or_id);
         final ObjThread result;
 
-        if (new UserService(jdbcTemplate).getObjUser(objVote.getNickname()) == null) {
+        if (userService.getObjUser(objVote.getNickname()) == null) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 
-        if (this.getObjThread(slug_or_id) == null) {
+        ObjThread objThread = this.getObjThread(slug_or_id);
+        if (objThread == null) {
             return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
         }
 
-        if (!objSlugOrId.getFlag()) {
-            objVote.setThreadId(objSlugOrId.getId());
 
-            final List<ObjVote> objVoteList = jdbcTemplate.query(
-                    "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
-                    new Object[]{objVote.getThreadId(), objVote.getNickname()}, new VoteMapper());
-
-            if (objVoteList.isEmpty()) {
-                if (objVote.getVoice() == 1)
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes+1 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-                else {
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes-1 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-                }
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE id =?",
-                        new Object[]{objVote.getThreadId()}, new ThreadMapper());
-
-                jdbcTemplate.update(
-                        "INSERT INTO vote (id,nickname,voice,slug) VALUES(?,?,?,?)",
-                        objVote.getThreadId(), objVote.getNickname(), objVote.getVoice(), result.getSlug());
-            } else {
-                jdbcTemplate.update(
-                        "UPDATE vote SET voice=? WHERE id=?",
-                        objVote.getVoice(), objVote.getThreadId());
-                if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1))
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes-2 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-
-                if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1))
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes+2 WHERE id=?",
-                            new Object[]{objVote.getThreadId()});
-
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE id =?",
-                        new Object[]{objVote.getThreadId()}, new ThreadMapper());
-            }
-
-            result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
-            return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+        if (objVote.getVoice() == 1) {
+            vote(objVote, objThread.getId());
         } else {
-            objVote.setSlug(objSlugOrId.getSlug());
+            unvote(objVote, objThread.getId());
+        }
 
-            final List<ObjVote> objVoteList = jdbcTemplate.query(
-                    "SELECT * FROM vote WHERE (LOWER(slug),LOWER(nickname))=(LOWER(?),LOWER(?))",
-                    new Object[]{objVote.getSlug(), objVote.getNickname()}, new VoteMapper());
+        result = jdbcTemplate.queryForObject(
+                "SELECT * FROM thread WHERE id =?",
+                new Object[]{objThread.getId()}, new ThreadMapper());
 
-            if (objVoteList.isEmpty()) {
-                jdbcTemplate.update(
-                        "INSERT INTO vote (slug,nickname,voice) VALUES(?,?,?)",
-                        objVote.getSlug(), objVote.getNickname(), objVote.getVoice());
-                if (objVote.getVoice() == 1)
-                    jdbcTemplate.update("UPDATE thread SET votes=votes+1 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                else {
-                    jdbcTemplate.update("UPDATE thread SET votes=votes-1 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                }
+        result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
+        return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+    }
 
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
-                        new Object[]{objVote.getSlug()}, new ThreadMapper());
+    public void vote(ObjVote objVote, Integer threadId) throws DataAccessException {
+        final List<ObjVote> objVoteList = jdbcTemplate.query(
+                "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
+                new Object[]{threadId, objVote.getNickname()}, new VoteMapper());
 
-                jdbcTemplate.update(
-                        "UPDATE vote SET id=? WHERE LOWER(slug)=LOWER(?)",
-                        result.getId(), result.getSlug());
-            } else {
-                jdbcTemplate.update(
-                        "UPDATE vote SET voice=? WHERE LOWER(slug)=LOWER(?)",
-                        objVote.getVoice(), objVote.getSlug());
+        String sql = "";
+        if (!objVoteList.isEmpty() && objVoteList.get(0).getVoice() == -1) {
+            sql = "UPDATE thread SET votes = votes + 2 WHERE id = ?; " +
+                    "UPDATE vote SET voice = 1 WHERE id = ? AND nickname = ?";
+        } else if(objVoteList.isEmpty()){
+            sql = "UPDATE thread SET votes = votes + 1 WHERE id = ?; " +
+                    "INSERT INTO vote (id, nickname, voice) VALUES (?, ?, 1)";
+        }
+        if(!sql.equals(""))
+            voteDeadlock(sql, threadId, objVote.getNickname());
+    }
 
-                if ((objVote.getVoice() == -1) && (objVoteList.get(0).getVoice() == 1)) {
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes-2 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                }
-                if ((objVote.getVoice() == 1) && (objVoteList.get(0).getVoice() == -1)) {
-                    jdbcTemplate.update(
-                            "UPDATE thread SET votes=votes+2 WHERE LOWER(slug)=LOWER(?)",
-                            objSlugOrId.getSlug());
-                }
-                result = jdbcTemplate.queryForObject(
-                        "SELECT * FROM thread WHERE LOWER(slug) =LOWER(?)",
-                        new Object[]{objVote.getSlug()}, new ThreadMapper());
+    public void unvote(ObjVote objVote, Integer threadId) throws DataAccessException {
+        final List<ObjVote> objVoteList = jdbcTemplate.query(
+                "SELECT * FROM vote WHERE(id, LOWER(nickname))=(?,LOWER(?))",
+                new Object[]{threadId, objVote.getNickname()}, new VoteMapper());
+            String sql ="";
+            if (!objVoteList.isEmpty() && objVoteList.get(0).getVoice() == 1) {
+                sql = "UPDATE thread SET votes = votes - 2 WHERE id = ?; " +
+                        "UPDATE vote SET voice = -1 WHERE id = ? AND nickname = ?";
+            } else if(objVoteList.isEmpty()){
+                sql = "UPDATE thread SET votes = votes - 1 WHERE id = ?; " +
+                        "INSERT INTO vote (id, nickname, voice) VALUES (?, ?, -1)";
             }
-            result.setCreated(TransformDate.transformWithAppend00(result.getCreated()));
-            return new ResponseEntity<>(result.getJson().toString(), HttpStatus.OK);
+            if(!sql.equals(""))
+                voteDeadlock(sql, threadId, objVote.getNickname());
+    }
+
+    private void voteDeadlock(String sql, int threadId, String nickname) {
+        try {
+            boolean finished = false;
+            while (!finished) {
+                jdbcTemplate.update(sql, threadId, threadId, nickname);
+                finished = true;
+            }
+
+        } catch (DeadlockLoserDataAccessException e){
+            System.out.println("VOTING_DEADLOCK!!!");
         }
     }
 
@@ -364,6 +283,7 @@ public class ThreadService {
 
                     postQuery.append(" LIMIT ").append(limit.toString());
                     postQuery.append(" OFFSET ").append(marker.toString());
+                    System.out.println("query=" + postQuery);
                     break;
                 }
                 case "parent_tree": {
@@ -409,6 +329,7 @@ public class ThreadService {
                     if (desc != null && !desc) {
                         postQuery.append(", path ASC");
                     }
+                    System.out.println("query=" + postQuery);
                     break;
                 }
             }

@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import sample.objects.ObjForum;
 import sample.objects.ObjPost;
 import sample.objects.ObjThread;
@@ -15,10 +16,17 @@ import sample.support.TransformDate;
 /**
  * Created by Denis on 22.03.2017.
  */
+@Service
 public class PostService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    ThreadService threadService;
+
+    @Autowired
+    UserService userService;
 
     public PostService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -35,7 +43,6 @@ public class PostService {
         }
 
         final JSONObject result = new JSONObject();
-        //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
         objPost.setCreated(objPost.getCreated());
         result.put("post", objPost.getJson());
 
@@ -43,7 +50,7 @@ public class PostService {
         for (String option : arrRelated) {
             switch (option) {
                 case "user": {
-                    final ObjUser objUser = new UserService(jdbcTemplate).getObjUser(objPost.getAuthor());
+                    final ObjUser objUser = userService.getObjUser(objPost.getAuthor());
                     if (objUser != null) {
                         result.put("author", objUser.getJson());
                     }
@@ -57,8 +64,9 @@ public class PostService {
                     break;
                 }
                 case "thread": {
-                    final ObjThread objThread = new ThreadService(jdbcTemplate).getObjThread(
-                            String.valueOf(objPost.getThread()));
+                    /*final ObjThread objThread = new ThreadService(jdbcTemplate).getObjThread(
+                            String.valueOf(objPost.getThread()));*/
+                    final ObjThread objThread = threadService.getObjThread(String.valueOf(objPost.getThread()));
                     if (objThread != null) {
                         objThread.setCreated(TransformDate.transformWithAppend00(objThread.getCreated()));
                         result.put("thread", objThread.getJson());
@@ -99,7 +107,6 @@ public class PostService {
                 }
                 objPost.setMessage(newPost.getMessage());
             }
-            //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
             objPost.setCreated(objPost.getCreated());
             return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
         } else {
@@ -107,7 +114,6 @@ public class PostService {
             if(objPost == null){
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
-            //objPost.setCreated(TransformDate.transformWithAppend0300(objPost.getCreated()));
             objPost.setCreated(objPost.getCreated());
             return new ResponseEntity<>(objPost.getJson().toString(), HttpStatus.OK);
         }

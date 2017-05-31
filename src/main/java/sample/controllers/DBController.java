@@ -1,5 +1,6 @@
 package sample.controllers;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,11 +16,12 @@ import sample.sql.DBService;
 @RequestMapping("api/service/")
 public class DBController {
 
-    private final DBService dbService;
+    @Autowired
+    DBService dbService;
 
-    public DBController(JdbcTemplate jdbcTemplate) {
+    /*public DBController(JdbcTemplate jdbcTemplate) {
         this.dbService = new DBService(jdbcTemplate);
-    }
+    }*/
 
     //Очистка всех данных в базе
     @RequestMapping(path = "/clear", method = RequestMethod.POST)
