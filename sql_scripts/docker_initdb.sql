@@ -85,9 +85,6 @@ CREATE TABLE link_user_forum (
 );
 CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
 
-
-CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
-
 CREATE OR REPLACE FUNCTION postCreate() RETURNS TRIGGER AS
 $BODY$
 BEGIN
@@ -98,3 +95,5 @@ BEGIN
 END;
 $BODY$
 LANGUAGE plpgsql;
+
+CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
