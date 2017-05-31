@@ -85,7 +85,7 @@ CREATE TABLE link_user_forum (
 );
 CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
 
-CREATE OR REPLACE FUNCTION postCreate() RETURNS TRIGGER AS
+CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
 $BODY$
 BEGIN
   IF substring(new.path,1,1)='*' THEN
