@@ -38,7 +38,7 @@ CREATE TABLE forum (
   threads INTEGER
 );
 
-CREATE INDEX index_forum__slug ON forum (slug);
+CREATE INDEX index_forum__slug ON forum (LOWER(slug));
 
 CREATE TABLE thread (
   id INTEGER PRIMARY KEY DEFAULT NEXTVAL('thread_id_seq'),
@@ -52,6 +52,8 @@ CREATE TABLE thread (
 );
 
 CREATE INDEX index_thread__slug ON thread (LOWER(slug));
+CREATE INDEX index_thread__forum ON thread (LOWER(forum));
+CREATE INDEX index_thread__forum_created ON thread (LOWER(forum), created);
 
 CREATE TABLE post (
   id INTEGER PRIMARY KEY DEFAULT NEXTVAL('post_id_seq'),
@@ -67,6 +69,7 @@ CREATE TABLE post (
 
 CREATE INDEX index_post__parent_thread ON post (parent ASC, thread ASC);
 CREATE INDEX index_post__thread ON post (thread ASC);
+CREATE INDEX index_post__thread_path ON post (thread, path ASC);
 
 CREATE TABLE vote (
   id INTEGER,
