@@ -22,7 +22,7 @@ public class ForumController {
     //Создание форума
     @RequestMapping(path = "/create", method = RequestMethod.POST)
     public ResponseEntity<String> createForum(@RequestBody ObjForum body) {
-        System.out.println("Create FORUM with slug " + body.getSlug());
+        //System.out.println("Create FORUM with slug " + body.getSlug());
         return (forumService.createForum(body));
     }
 
@@ -30,7 +30,7 @@ public class ForumController {
     @RequestMapping(path = "/{slug}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createThread(@RequestBody ObjThread body,
                                                @PathVariable(name = "slug") String slug) {
-        System.out.println("Create THREAD with slug " + slug);
+        //System.out.println("Create THREAD with slug " + slug);
 
         ResponseEntity<String> responseEntity = forumService.createThread(body, slug);
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){

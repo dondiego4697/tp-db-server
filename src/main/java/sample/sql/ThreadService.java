@@ -125,6 +125,7 @@ public class ThreadService {
     }
 
     public void addInLinkUserForum(String forumSlug, List<String> userNames, int chunkSize) {
+        //System.out.println(userNames.toString());
         final List<Object[]> totalList = userNames.stream()
                 .distinct()
                 .map(name -> new Object[]{forumSlug, name})
@@ -134,7 +135,7 @@ public class ThreadService {
     }
 
     private void addUser(List<Object[]> list) {
-        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?) ON CONFLICT DO NOTHING";
+        final String sql = "INSERT INTO link_user_forum (forum_slug, user_nickname) VALUES (?,?) ON CONFLICT DO NOTHING";
         boolean finished = false;
         while (!finished) {
             try {
@@ -268,7 +269,7 @@ public class ThreadService {
                     if (desc != null && desc) postQuery.append(" DESC");
                     postQuery.append(" LIMIT ").append(limit.toString());
                     postQuery.append(" OFFSET ").append(marker.toString());
-                    System.out.println("query=" + postQuery);
+                    //System.out.println("query=" + postQuery);
                     break;
                 }
                 case "tree": {
@@ -283,7 +284,7 @@ public class ThreadService {
 
                     postQuery.append(" LIMIT ").append(limit.toString());
                     postQuery.append(" OFFSET ").append(marker.toString());
-                    System.out.println("query=" + postQuery);
+                    //System.out.println("query=" + postQuery);
                     break;
                 }
                 case "parent_tree": {
@@ -329,7 +330,7 @@ public class ThreadService {
                     if (desc != null && !desc) {
                         postQuery.append(", path ASC");
                     }
-                    System.out.println("query=" + postQuery);
+                    //System.out.println("query=" + postQuery);
                     break;
                 }
             }

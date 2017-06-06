@@ -215,7 +215,7 @@ public class ForumService {
             params.add(limit);
         }
 
-        System.out.println(query + " " +params.toString());
+        //System.out.println(query + " " +params.toString());
 
         final List<ObjUser> arrObjUser = jdbcTemplate.query(
                 query.toString(),

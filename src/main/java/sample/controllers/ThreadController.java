@@ -30,7 +30,7 @@ public class ThreadController {
     @RequestMapping(path = "/{slug_or_id}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createPost(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ArrayList<ObjPost> body) {
-        System.out.println("Create POST with slug/id " + slug_or_id);
+        //System.out.println("Create POST with slug/id " + slug_or_id);
 
         final ObjThread objThread;
 
@@ -56,6 +56,7 @@ public class ThreadController {
         }
         ResponseEntity<String> responseEntity = threadService.createPosts(body, objThread);
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
+            //System.out.println("IM IN CREATED POSTS");
             threadService.incrementPosts(objThread.getForum(), body.size());
             threadService.addInLinkUserForum(objThread.getForum(),
                     body.stream()
@@ -93,7 +94,7 @@ public class ThreadController {
     @RequestMapping(path = "/{slug_or_id}/vote", method = RequestMethod.POST)
     public ResponseEntity<String> voteThread(@PathVariable(name = "slug_or_id") String slug_or_id,
                                              @RequestBody ObjVote body) {
-        System.out.println("Create VOTE with slug/id " + slug_or_id);
+        //System.out.println("Create VOTE with slug/id " + slug_or_id);
         return (threadService.vote(body, slug_or_id));
     }
 }

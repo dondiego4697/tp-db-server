@@ -34,7 +34,7 @@ public class UserController {
     //Создание нового пользователя
     @RequestMapping(path = "/{nickname}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createUser(@RequestBody ObjUser body, @PathVariable(name = "nickname") String nickname) {
-        System.out.println("Create USER with nickname " + nickname);
+        //System.out.println("Create USER with nickname " + nickname);
 
         try{
             return userService.create(body, nickname);
