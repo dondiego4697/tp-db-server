@@ -20,10 +20,6 @@ public class PostController {
     @Autowired
     PostService postService;
 
-    /*public PostController(JdbcTemplate jdbcTemplate) {
-        this.postService = new PostService(jdbcTemplate);
-    }*/
-
     //Получение информации о ветке
     @RequestMapping(path = "/{id}/details", method = RequestMethod.GET)
     public ResponseEntity<String> getPostDetail(@PathVariable(name = "id") Integer id,

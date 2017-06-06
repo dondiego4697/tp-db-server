@@ -7,7 +7,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import sample.objects.ObjUser;
+import sample.rowsmap.UserMapper;
 import sample.sql.UserService;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 /**
  * Created by Denis on 17.02.2017.

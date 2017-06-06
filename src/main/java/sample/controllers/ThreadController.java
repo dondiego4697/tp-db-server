@@ -26,10 +26,6 @@ public class ThreadController {
     @Autowired
     ThreadService threadService;
 
-    /*public ThreadController(JdbcTemplate jdbcTemplate) {
-        this.threadService = new ThreadService(jdbcTemplate);
-    }*/
-
     //Создание новых постов
     @RequestMapping(path = "/{slug_or_id}/create", method = RequestMethod.POST)
     public ResponseEntity<String> createPost(@PathVariable(name = "slug_or_id") String slug_or_id,

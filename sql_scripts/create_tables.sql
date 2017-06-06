@@ -1,3 +1,5 @@
+SET SYNCHRONOUS_COMMIT = OFF;
+
 DROP SEQUENCE forum_id_seq CASCADE;
 DROP SEQUENCE post_id_seq CASCADE;
 DROP SEQUENCE thread_id_seq CASCADE;
@@ -83,10 +85,7 @@ CREATE TABLE link_user_forum (
 );
 CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
 
-
-CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
-
-CREATE OR REPLACE FUNCTION postCreate() RETURNS TRIGGER AS
+CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
 $BODY$
 BEGIN
   IF substring(new.path,1,1)='*' THEN
@@ -96,3 +95,5 @@ BEGIN
 END;
 $BODY$
 LANGUAGE plpgsql;
+
+CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
