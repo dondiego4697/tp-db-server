@@ -136,7 +136,7 @@ public class ForumService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void addInLinkUserForum(String slug, String nickname) throws Exception {
-        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?)";
+        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?) ON CONFLICT DO NOTHING";
         jdbcTemplate.update(sql, nickname, slug);
     }
 
@@ -193,7 +193,7 @@ public class ForumService {
         final ArrayList<Object> params = new ArrayList<>();
         params.add(slug);
 
-        final StringBuilder query = new StringBuilder("SELECT DISTINCT ON (link.user_nickname) u.* FROM " +
+        final StringBuilder query = new StringBuilder("SELECT u.* FROM " +
                 "link_user_forum link JOIN users u ON u.nickname = link.user_nickname " +
                 "WHERE link.forum_slug = ?::citext ");
         if (since != null) {
@@ -214,6 +214,8 @@ public class ForumService {
             query.append(" LIMIT ? ");
             params.add(limit);
         }
+
+        System.out.println(query + " " +params.toString());
 
         final List<ObjUser> arrObjUser = jdbcTemplate.query(
                 query.toString(),
