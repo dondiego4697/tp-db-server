@@ -48,7 +48,8 @@ CREATE TABLE thread (
   votes INTEGER,
   slug TEXT,
   created TIMESTAMP WITH TIME ZONE,
-  author TEXT
+  author TEXT,
+  userid INTEGER
 );
 
 CREATE INDEX index_thread__slug ON thread (LOWER(slug));
@@ -64,13 +65,9 @@ CREATE TABLE post (
   forum VARCHAR(255),
   created TIMESTAMP WITH TIME ZONE DEFAULT now(),
   thread INTEGER references thread(id),
-  path VARCHAR(255)
+  path VARCHAR(255),
+  userid INTEGER
 );
-
-/*CREATE INDEX index_post__parent_thread ON post (parent ASC, thread ASC);
-CREATE INDEX index_post__thread ON post (thread ASC);
-CREATE INDEX index_post__thread_path ON post (thread, path ASC);*/
-
 
 CREATE INDEX index_post__thread ON post (thread ASC);
 CREATE INDEX index_post__parent ON post (parent ASC);
@@ -87,20 +84,7 @@ CREATE INDEX index_vote__id_userid ON vote (id, userid);
 
 CREATE TABLE link_user_forum (
   id SERIAL PRIMARY KEY ,
-  user_nickname CITEXT COLLATE "ucs_basic",
+  userid INTEGER,
   forum_slug CITEXT COLLATE "ucs_basic",
-  UNIQUE (user_nickname, forum_slug)
+  UNIQUE (userid, forum_slug)
 );
---CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
-
--- CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
--- $BODY$
--- /*BEGIN
---   IF substring(new.path,1,1)='*' THEN
---     UPDATE post SET path=concat(substring(new.path, 2, char_length(new.path) - 1), '.', lpad(to_hex(new.id), 6, '0')) WHERE id=new.id;
---   END IF;
---   RETURN new;
--- END;*/
--- $BODY$
--- LANGUAGE plpgsql;
---
