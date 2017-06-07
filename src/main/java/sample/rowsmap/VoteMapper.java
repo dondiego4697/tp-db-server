@@ -14,7 +14,7 @@ public class VoteMapper implements RowMapper<ObjVote> {
     public ObjVote mapRow(ResultSet resultSet, int i) throws SQLException {
         final ObjVote objVote = new ObjVote();
         objVote.setThreadId(resultSet.getInt("id"));
-        objVote.setNickname(resultSet.getString("nickname"));
+        objVote.setUserid(resultSet.getInt("userid"));
         objVote.setSlug(resultSet.getString("slug"));
         objVote.setVoice(resultSet.getInt("voice"));
         return objVote;

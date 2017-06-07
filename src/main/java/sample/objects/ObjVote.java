@@ -9,7 +9,7 @@ import org.json.JSONObject;
  */
 public class ObjVote {
     @SuppressWarnings("MultipleVariablesInDeclaration")
-    private int id, voice;
+    private int id, voice, userid;
     @SuppressWarnings("MultipleVariablesInDeclaration")
     private String slug, nickname;
 
@@ -24,6 +24,7 @@ public class ObjVote {
             @JsonProperty("voice") int voice) {
         this.nickname = nickname;
         this.id = id;
+        this.userid = userid;
         this.slug = slug;
         this.voice = voice;
     }
@@ -39,6 +40,8 @@ public class ObjVote {
     public String getNickname() {
         return nickname;
     }
+
+    public int getUserId(){return userid;}
 
     public String getSlug() {
         return slug;
@@ -60,10 +63,15 @@ public class ObjVote {
         this.voice = voice;
     }
 
+    public void setUserid(int userid) {
+        this.userid = userid;
+    }
+
     public JSONObject getJson() {
         final JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", id);
         jsonObject.put("nickname", nickname);
+        jsonObject.put("userid", userid);
         jsonObject.put("slug", slug);
         jsonObject.put("voice", voice);
         return jsonObject;

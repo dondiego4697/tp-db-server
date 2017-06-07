@@ -79,11 +79,11 @@ CREATE INDEX index_post__path ON post (path ASC);
 CREATE TABLE vote (
   id INTEGER,
   slug VARCHAR(255),
-  nickname VARCHAR(255),
+  userid INTEGER,
   voice INTEGER
 );
 
-CREATE INDEX index_vote__id_nickname ON vote (id, LOWER(nickname));
+CREATE INDEX index_vote__id_userid ON vote (id, userid);
 
 CREATE TABLE link_user_forum (
   id SERIAL PRIMARY KEY ,

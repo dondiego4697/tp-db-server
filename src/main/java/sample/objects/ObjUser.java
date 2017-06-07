@@ -10,6 +10,7 @@ import org.json.JSONObject;
 public class ObjUser {
     @SuppressWarnings("MultipleVariablesInDeclaration")
     private String nickname = "", fullname = "", about = "", email = "";
+    private int id;
 
     public ObjUser() {
 
@@ -21,10 +22,19 @@ public class ObjUser {
             @JsonProperty("fullname") String fullname,
             @JsonProperty("about") String about,
             @JsonProperty("email") String email) {
+        this.id = id;
         this.nickname = nickname;
         this.fullname = fullname;
         this.about = about;
         this.email = email;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public String getAbout() {
