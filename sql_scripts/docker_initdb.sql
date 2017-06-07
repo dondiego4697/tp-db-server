@@ -88,15 +88,15 @@ CREATE TABLE link_user_forum (
 );
 CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
 
-CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
-$BODY$
-BEGIN
-  IF substring(new.path,1,1)='*' THEN
-    UPDATE post SET path=concat(substring(new.path, 2, char_length(new.path) - 1), '.', lpad(to_hex(new.id), 6, '0')) WHERE id=new.id;
-  END IF;
-  RETURN new;
-END;
-$BODY$
-LANGUAGE plpgsql;
-
-CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
+-- CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
+-- $BODY$
+-- /*BEGIN
+--   IF substring(new.path,1,1)='*' THEN
+--     UPDATE post SET path=concat(substring(new.path, 2, char_length(new.path) - 1), '.', lpad(to_hex(new.id), 6, '0')) WHERE id=new.id;
+--   END IF;
+--   RETURN new;
+-- END;*/
+-- $BODY$
+-- LANGUAGE plpgsql;
+--
+-- CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();

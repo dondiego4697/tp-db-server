@@ -51,6 +51,10 @@ public class ThreadService {
         final Timestamp now = new Timestamp(System.currentTimeMillis());
         final JSONArray result = new JSONArray();
 
+        Integer maxId = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
+        maxId = maxId == null ? 0 : maxId;
+        Integer currId = maxId;
+
         //TODO create
         int rootsCount = 0;
         List<Object[]> postList = new ArrayList<>();
@@ -91,7 +95,9 @@ public class ThreadService {
                         new Object[]{objPost.getParent()}, String.class
                 );
 
-                objPost.setPath('*'+prevPath);
+                currId++;
+                //objPost.setPath('*'+prevPath);
+                objPost.setPath(prevPath+'.'+ValueConverter.toHex(currId));
             }
 
             objPost.setCreated(now);
@@ -107,9 +113,6 @@ public class ThreadService {
                     objPost.getCreated()
             });
         }
-
-        Integer maxId = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
-        maxId = maxId == null ? 0 : maxId;
 
         jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
                 "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
