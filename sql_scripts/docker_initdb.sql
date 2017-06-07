@@ -67,9 +67,14 @@ CREATE TABLE post (
   path VARCHAR(255)
 );
 
-CREATE INDEX index_post__parent_thread ON post (parent ASC, thread ASC);
+/*CREATE INDEX index_post__parent_thread ON post (parent ASC, thread ASC);
 CREATE INDEX index_post__thread ON post (thread ASC);
-CREATE INDEX index_post__thread_path ON post (thread, path ASC);
+CREATE INDEX index_post__thread_path ON post (thread, path ASC);*/
+
+
+CREATE INDEX index_post__thread ON post (thread ASC);
+CREATE INDEX index_post__parent ON post (parent ASC);
+CREATE INDEX index_post__path ON post (path ASC);
 
 CREATE TABLE vote (
   id INTEGER,
@@ -86,7 +91,7 @@ CREATE TABLE link_user_forum (
   forum_slug CITEXT COLLATE "ucs_basic",
   UNIQUE (user_nickname, forum_slug)
 );
-CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
+--CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug);
 
 -- CREATE OR REPLACE FUNCTION postInsert() RETURNS TRIGGER AS
 -- $BODY$
@@ -99,4 +104,3 @@ CREATE INDEX index_link_user_forum ON link_user_forum (user_nickname, forum_slug
 -- $BODY$
 -- LANGUAGE plpgsql;
 --
--- CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();

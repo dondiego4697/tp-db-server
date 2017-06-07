@@ -97,3 +97,30 @@ $BODY$
 LANGUAGE plpgsql;
 
 CREATE TRIGGER postInsert AFTER INSERT ON post FOR EACH ROW EXECUTE PROCEDURE postInsert();
+
+CREATE OR REPLACE FUNCTION vote_update() RETURNS TRIGGER AS
+  $BODY$
+    BEGIN
+      IF old.voice=-1 AND new.voice=1 THEN
+        UPDATE thread SET votes=votes+2 WHERE id=new.id;
+      END IF;
+      IF old.voice=1 AND new.voice=-1 THEN
+        UPDATE thread SET votes=votes-2 WHERE id=new.id;
+      END IF;
+      RETURN new;
+    END;
+  $BODY$
+  LANGUAGE plpgsql;
+
+CREATE TRIGGER voteUpdate BEFORE UPDATE ON vote FOR EACH ROW EXECUTE PROCEDURE vote_update();
+
+CREATE OR REPLACE FUNCTION vote_insert() RETURNS TRIGGER AS
+  $BODY$
+    BEGIN
+      UPDATE thread SET votes=votes+new.voice WHERE id=new.id;
+      RETURN new;
+    END;
+  $BODY$
+  LANGUAGE plpgsql;
+
+CREATE TRIGGER voteInsert BEFORE INSERT ON vote FOR EACH ROW EXECUTE PROCEDURE vote_insert();
