@@ -43,13 +43,13 @@ public class ThreadService {
     UserService userService;
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public ResponseEntity<String> createPosts(ArrayList<ObjPost> arrObjPost, ObjThread objThread) {
+    public ResponseEntity<ArrayList<ObjPost>> createPosts(ArrayList<ObjPost> arrObjPost, ObjThread objThread) {
 
         final Integer threadID = objThread.getId();
 
 
         final Timestamp now = new Timestamp(System.currentTimeMillis());
-        final JSONArray result = new JSONArray();
+        //final JSONArray result = new JSONArray();
 
         Integer maxId = jdbcTemplate.queryForObject("SELECT max(id) FROM post", Integer.class);
         maxId = maxId == null ? 0 : maxId;
@@ -68,17 +68,18 @@ public class ThreadService {
                                 "SELECT * FROM post WHERE id=? AND thread=?",
                                 new Object[]{objPost.getParent(), threadID}, new PostMapper());
                         if (posts.isEmpty()) {
-                            return new ResponseEntity<>("", HttpStatus.CONFLICT);
+                            return new ResponseEntity<>(new ArrayList(), HttpStatus.CONFLICT);
                         }
                     } catch (Exception e) {
-                        return new ResponseEntity<>("", HttpStatus.CONFLICT);
+                        return new ResponseEntity<>(new ArrayList(), HttpStatus.CONFLICT);
                     }
             }
 
-            final ResponseEntity responseEntity = userService.get(objPost.getAuthor());
-            if (responseEntity.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
-                return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
+            final ObjUser objUser = userService.getObjUser(objPost.getAuthor());
+            if(objUser == null){
+                return new ResponseEntity<>(new ArrayList(), HttpStatus.NOT_FOUND);
             }
+            objPost.setUserid(objUser.getId());
 
             if (objPost.getParent() == 0) {
                 final Integer count = jdbcTemplate.queryForObject(
@@ -110,35 +111,35 @@ public class ThreadService {
                     objPost.getForum(),
                     objPost.getThread(),
                     objPost.getPath(),
-                    objPost.getCreated()
+                    objPost.getCreated(),
+                    objPost.getUserid()
             });
         }
 
-        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created) " +
-                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone)", postList);
+        jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created, userid) " +
+                "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone,?)", postList);
         List<Integer> idsList = jdbcTemplate.queryForList("SELECT id FROM post WHERE id > ? ORDER BY id", new Object[]{maxId}, Integer.class);
 
         IntStream.range(0, arrObjPost.size()).boxed()
                 .forEach(i -> {
                     arrObjPost.get(i).setId(idsList.get(i));
-                    result.put(arrObjPost.get(i).getJson());
                 });
 
-        return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
+        return new ResponseEntity<>(arrObjPost, HttpStatus.CREATED);
     }
 
-    public void addInLinkUserForum(String forumSlug, List<String> userNames, int chunkSize) {
+    public void addInLinkUserForum(String forumSlug, List<Integer> userIds, int chunkSize) {
         //System.out.println(userNames.toString());
-        final List<Object[]> totalList = userNames.stream()
+        final List<Object[]> totalList = userIds.stream()
                 .distinct()
-                .map(name -> new Object[]{forumSlug, name})
+                .map(id -> new Object[]{forumSlug, id})
                 .collect(Collectors.toList());
         final List<List<Object[]>> chunkLists = Lists.partition(totalList, chunkSize);
         chunkLists.forEach(this::addUser);
     }
 
     private void addUser(List<Object[]> list) {
-        final String sql = "INSERT INTO link_user_forum (forum_slug, user_nickname) VALUES (?,?) ON CONFLICT DO NOTHING";
+        final String sql = "INSERT INTO link_user_forum (forum_slug, userid) VALUES (?,?) ON CONFLICT DO NOTHING";
         boolean finished = false;
         while (!finished) {
             try {

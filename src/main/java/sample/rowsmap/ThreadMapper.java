@@ -19,6 +19,7 @@ public class ThreadMapper implements RowMapper<ObjThread> {
         objThread.setAuthor(resultSet.getString("author"));
         objThread.setForum(resultSet.getString("forum"));
         objThread.setMessage(resultSet.getString("message"));
+        objThread.setUserid(resultSet.getInt("userid"));
         if (resultSet.getInt("votes") != 0) objThread.setVotes(resultSet.getInt("votes"));
         objThread.setSlug(resultSet.getString("slug"));
         objThread.setCreated(resultSet.getString("created"));

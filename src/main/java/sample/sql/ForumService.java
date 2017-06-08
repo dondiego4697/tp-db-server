@@ -86,7 +86,7 @@ public class ForumService {
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
-    public ResponseEntity<String> createThread(ObjThread objThread, String slug) {
+    public ResponseEntity<String> createThread(ObjThread objThread, String slug, ObjUser objUser) {
         try {
             final ObjThread objThread1 = threadService.getObjThreadBySlug(objThread.getSlug());
             if (objThread1 != null) {
@@ -99,7 +99,6 @@ public class ForumService {
 
         final ObjForum objForum;
         try {
-            final ObjUser objUser = userService.getObjUser(objThread.getAuthor());
             objForum = this.getObjForum(slug);
             if(objUser == null || objForum == null){
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
@@ -113,7 +112,7 @@ public class ForumService {
         jdbcTemplate.update(connection -> {
             final PreparedStatement ps = connection.prepareStatement(
                     "INSERT INTO thread (title,author,forum,message,slug," +
-                            "votes,created) VALUES (?,?,?,?,?,?,?::timestamptz)", new String[]{"id"});
+                            "votes,created, userid) VALUES (?,?,?,?,?,?,?::timestamptz,?)", new String[]{"id"});
             ps.setString(1, objThread.getTitle());
             ps.setString(2, objThread.getAuthor());
             ps.setString(3, objThread.getForum());
@@ -121,6 +120,7 @@ public class ForumService {
             ps.setString(5, objThread.getSlug());
             ps.setInt(6, objThread.getVotes());
             ps.setString(7, objThread.getCreated());
+            ps.setInt(8, objUser.getId());
             return ps;
         }, holder);
         objThread.setId((int) holder.getKey());
@@ -135,9 +135,9 @@ public class ForumService {
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public void addInLinkUserForum(String slug, String nickname) throws Exception {
-        final String sql = "INSERT INTO link_user_forum (user_nickname, forum_slug) VALUES (?,?) ON CONFLICT DO NOTHING";
-        jdbcTemplate.update(sql, nickname, slug);
+    public void addInLinkUserForum(String slug, int userid) throws Exception {
+        final String sql = "INSERT INTO link_user_forum (userid, forum_slug) VALUES (?,?) ON CONFLICT DO NOTHING";
+        jdbcTemplate.update(sql, userid, slug);
     }
 
 
@@ -194,17 +194,17 @@ public class ForumService {
         params.add(slug);
 
         final StringBuilder query = new StringBuilder("SELECT u.* FROM " +
-                "link_user_forum link JOIN users u ON u.nickname = link.user_nickname " +
+                "link_user_forum link JOIN users u ON u.id = link.userid " +
                 "WHERE link.forum_slug = ?::citext ");
         if (since != null) {
             if (desc!= null && desc) {
-                query.append(" AND link.user_nickname < ?::citext ");
+                query.append(" AND u.nickname < ?::citext ");
             } else {
-                query.append(" AND link.user_nickname > ?::citext ");
+                query.append(" AND u.nickname > ?::citext ");
             }
             params.add(since);
         }
-        query.append("ORDER BY link.user_nickname");
+        query.append("ORDER BY u.nickname");
 
         if (desc!= null && desc) {
             query.append(" DESC ");

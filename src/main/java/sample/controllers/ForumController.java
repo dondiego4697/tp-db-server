@@ -7,7 +7,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import sample.objects.ObjForum;
 import sample.objects.ObjThread;
+import sample.objects.ObjUser;
 import sample.sql.ForumService;
+import sample.sql.UserService;
 
 /**
  * Created by Denis on 17.02.2017.
@@ -18,6 +20,9 @@ public class ForumController {
 
     @Autowired
     ForumService forumService;
+
+    @Autowired
+    UserService userService;
 
     //Создание форума
     @RequestMapping(path = "/create", method = RequestMethod.POST)
@@ -31,12 +36,12 @@ public class ForumController {
     public ResponseEntity<String> createThread(@RequestBody ObjThread body,
                                                @PathVariable(name = "slug") String slug) {
         //System.out.println("Create THREAD with slug " + slug);
-
-        ResponseEntity<String> responseEntity = forumService.createThread(body, slug);
+        ObjUser objUser = userService.getObjUser(body.getAuthor());
+        ResponseEntity<String> responseEntity = forumService.createThread(body, slug, objUser);
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
             forumService.incrementThreads(slug);
             try {
-                forumService.addInLinkUserForum(slug, body.getAuthor());
+                forumService.addInLinkUserForum(slug, objUser.getId());
             } catch (Exception e){
             }
         }

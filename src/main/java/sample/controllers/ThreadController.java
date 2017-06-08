@@ -1,5 +1,6 @@
 package sample.controllers;
 
+import org.json.JSONArray;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import sample.support.ObjSlugOrId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Created by Denis on 17.02.2017.
@@ -54,17 +56,30 @@ public class ThreadController {
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
         }
-        ResponseEntity<String> responseEntity = threadService.createPosts(body, objThread);
+        ResponseEntity<ArrayList<ObjPost>> responseEntity = threadService.createPosts(body, objThread);
+
+        if(responseEntity.getStatusCode().equals(HttpStatus.CONFLICT) || responseEntity.getStatusCode().equals(HttpStatus.NOT_FOUND)){
+            return new ResponseEntity<>("", responseEntity.getStatusCode());
+        }
+
+        ArrayList<ObjPost> arr = responseEntity.getBody();
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
             //System.out.println("IM IN CREATED POSTS");
             threadService.incrementPosts(objThread.getForum(), body.size());
+
             threadService.addInLinkUserForum(objThread.getForum(),
-                    body.stream()
-                            .map(ObjPost::getAuthor)
+                    arr.stream()
+                            .map(ObjPost::getUserid)
                             .distinct()
                             .collect(Collectors.toList()), 40);
         }
-        return responseEntity;
+
+        final JSONArray result = new JSONArray();
+        IntStream.range(0, arr.size()).boxed()
+                .forEach(i -> {
+                    result.put(arr.get(i).getJson());
+                });
+        return new ResponseEntity<>(result.toString(), HttpStatus.CREATED);
     }
 
     //Получение информации о ветке обсуждения

@@ -13,7 +13,7 @@ import java.sql.Timestamp;
  */
 public class ObjPost {
     @SuppressWarnings("MultipleVariablesInDeclaration")
-    private int id, parent, thread;
+    private int id, parent, thread, userid;
     @SuppressWarnings("MultipleVariablesInDeclaration")
     private String author, message, forum, path;
     private boolean isEdited;
@@ -45,6 +45,14 @@ public class ObjPost {
         this.path= path;
         this.forum=forum;
         this.created=created;
+    }
+
+    public void setUserid(int userid) {
+        this.userid = userid;
+    }
+
+    public int getUserid() {
+        return userid;
     }
 
     public String getMessage() {
