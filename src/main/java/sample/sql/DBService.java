@@ -39,7 +39,7 @@ public class DBService {
 
     public ResponseEntity<String> clear() {
         jdbcTemplate.update(
-                "TRUNCATE count; TRUNCATE post; TRUNCATE forum CASCADE; TRUNCATE thread CASCADE; TRUNCATE users; TRUNCATE vote; TRUNCATE link_user_forum CASCADE;"
+                "TRUNCATE post; TRUNCATE forum CASCADE; TRUNCATE thread CASCADE; TRUNCATE users; TRUNCATE vote; TRUNCATE link_user_forum CASCADE;"
                 );
 
         return new ResponseEntity<>(new ObjService().getJson().toString(), HttpStatus.OK);
