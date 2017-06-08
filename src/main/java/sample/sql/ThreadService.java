@@ -57,6 +57,7 @@ public class ThreadService {
 
         //TODO create
         int rootsCount = 0;
+        int parentCount = 0;
         List<Object[]> postList = new ArrayList<>();
         for (ObjPost objPost : arrObjPost) {
             objPost.setForum(objThread.getForum());
@@ -82,10 +83,21 @@ public class ThreadService {
             objPost.setUserid(objUser.getId());
 
             if (objPost.getParent() == 0) {
-                final Integer count = jdbcTemplate.queryForObject(
+                /*final Integer count = jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM post WHERE parent=0 AND thread=?",
                         new Object[]{objPost.getThread()}, Integer.class
-                );
+                );*/
+                /*Integer count=0;
+                try{
+                    count = jdbcTemplate.queryForObject(
+                        "SELECT count FROM count WHERE thread=?", new Object[]{objPost.getThread()}, Integer.class);
+                    //System.out.println("COUNT="+count);
+                } catch (Exception e){
+                    jdbcTemplate.update("INSERT INTO count (count, thread) VALUES (0,?)", objPost.getThread());
+                }
+*/
+                Integer count = jdbcTemplate.queryForObject(
+                        "SELECT count FROM thread WHERE id=?", new Object[]{objPost.getThread()}, Integer.class);
                 final String path = ValueConverter.toHex(count + rootsCount);
                 objPost.setPath(path);
 
@@ -97,7 +109,6 @@ public class ThreadService {
                 );
 
                 currId++;
-                //objPost.setPath('*'+prevPath);
                 objPost.setPath(prevPath+'.'+ValueConverter.toHex(currId));
             }
 
@@ -115,6 +126,8 @@ public class ThreadService {
                     objPost.getUserid()
             });
         }
+        //jdbcTemplate.update("UPDATE count SET count=count+? WHERE thread=?", rootsCount, threadID);
+        jdbcTemplate.update("UPDATE thread SET count=count+? WHERE id=?", rootsCount, threadID);
 
         jdbcTemplate.batchUpdate("INSERT INTO post (parent,author,message,isEdited,forum,thread,path,created, userid) " +
                 "VALUES (?,?,?,?,?,?,?,?::timestamp with time zone,?)", postList);
@@ -129,7 +142,6 @@ public class ThreadService {
     }
 
     public void addInLinkUserForum(String forumSlug, List<Integer> userIds, int chunkSize) {
-        //System.out.println(userNames.toString());
         final List<Object[]> totalList = userIds.stream()
                 .distinct()
                 .map(id -> new Object[]{forumSlug, id})

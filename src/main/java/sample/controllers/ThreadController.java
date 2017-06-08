@@ -56,6 +56,7 @@ public class ThreadController {
                 return new ResponseEntity<>("", HttpStatus.NOT_FOUND);
             }
         }
+
         ResponseEntity<ArrayList<ObjPost>> responseEntity = threadService.createPosts(body, objThread);
 
         if(responseEntity.getStatusCode().equals(HttpStatus.CONFLICT) || responseEntity.getStatusCode().equals(HttpStatus.NOT_FOUND)){
@@ -64,7 +65,6 @@ public class ThreadController {
 
         ArrayList<ObjPost> arr = responseEntity.getBody();
         if(responseEntity.getStatusCode().equals(HttpStatus.CREATED)){
-            //System.out.println("IM IN CREATED POSTS");
             threadService.incrementPosts(objThread.getForum(), body.size());
 
             threadService.addInLinkUserForum(objThread.getForum(),

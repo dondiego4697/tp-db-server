@@ -49,7 +49,8 @@ CREATE TABLE thread (
   slug TEXT,
   created TIMESTAMP WITH TIME ZONE,
   author TEXT,
-  userid INTEGER
+  userid INTEGER,
+  count INTEGER DEFAULT 0
 );
 
 CREATE INDEX index_thread__slug ON thread (LOWER(slug));
@@ -88,4 +89,5 @@ CREATE TABLE link_user_forum (
   forum_slug CITEXT COLLATE "ucs_basic",
   UNIQUE (userid, forum_slug)
 );
+
 
